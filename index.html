@@ -7,31 +7,24 @@
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            background: #f0f4f8;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-            padding: 16px;
-        }
-        #app {
-            background: #fff;
-            padding: 20px;
-            border-radius: 16px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.06);
-            max-width: 420px;
-            width: 100%;
-            text-align: center;
-        }
+        body { background: #f0f4f8; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; padding: 16px; }
+        #app { background: #fff; padding: 20px; border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.06); max-width: 420px; width: 100%; text-align: center; }
         h2 { margin-bottom: 16px; color: #2d3748; font-size: 1.4rem; }
-        .num-pad {
+        
+        .num-pad-wrapper {
             display: flex;
-            justify-content: center;
-            gap: 6px;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            margin-top: 16px;
             margin-bottom: 14px;
-            flex-wrap: wrap;
+        }
+        .num-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            width: fit-content;
+            margin: 0 auto;
         }
         .num-btn {
             width: 38px; height: 38px;
@@ -43,88 +36,62 @@
             cursor: pointer;
             color: #374151;
             transition: 0.15s;
-        }
-        .num-btn:hover { background: #eef2ff; border-color: #6366f1; }
-        .board {
-            display: grid;
-            grid-template-columns: repeat(9, 1fr);
-            gap: 1px;
-            background: #9ca3af;
-            border: 3px solid #9ca3af;
-            border-radius: 6px;
-            margin-bottom: 16px;
-            aspect-ratio: 1;
-        }
-        .cell {
-            aspect-ratio: 1;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: #fff;
-            font-size: clamp(1rem, 4.5vw, 1.4rem);
-            font-weight: 600;
-            cursor: pointer;
-            user-select: none;
-            transition: background 0.1s;
         }
+        .num-btn:hover { background: #eef2ff; border-color: #6366f1; }
+        .num-btn.clear-btn {
+            font-size: 1.2rem;
+            line-height: 1;
+        }
+        .num-btn.clear-btn:hover {
+            background: #eef2ff;
+            border-color: #6366f1;
+        }
+
+        .board { display: grid; grid-template-columns: repeat(9, 1fr); gap: 1px; background: #9ca3af; border: 3px solid #9ca3af; border-radius: 6px; aspect-ratio: 1; }
+        .cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; background: #fff; font-size: clamp(1rem, 4.5vw, 1.4rem); font-weight: 600; cursor: pointer; user-select: none; transition: background 0.1s; }
         .cell.given { color: #1f2937; }
         .cell.user { color: #4f46e5; }
         .cell.selected { background: #dbeafe; box-shadow: inset 0 0 0 2px #4f46e5; }
-        .cell.conflict { background: #fee2e2 !important; color: #b91c1c !important; }
+        
+        /* ===== 冲突高亮差异化重写 ===== */
+        /* 1. 玩家自己填入的冲突：红底 + 红字 + 红内边框（告诉你：要改这个） */
+        .cell.user.conflict {
+            background: #fee2e2 !important;
+            color: #b91c1c !important;
+            box-shadow: inset 0 0 0 2px #b91c1c !important;
+        }
+        /* 2. 固定数字冲突：保持白底黑字 + 黄内边框（提示：这里有冲突，但不能改） */
+        .cell.given.conflict {
+            background: #fff !important;
+            color: #1f2937 !important;
+            box-shadow: inset 0 0 0 3px #eab308 !important;
+        }
+        
         .cell.box-right { box-shadow: inset -2px 0 0 0 #9ca3af; }
         .cell.box-bottom { box-shadow: inset 0 -2px 0 0 #9ca3af; }
         .cell.box-right.box-bottom { box-shadow: inset -2px 0 0 0 #9ca3af, inset 0 -2px 0 0 #9ca3af; }
         .cell.selected.box-right { box-shadow: inset -2px 0 0 0 #9ca3af, inset 0 0 0 2px #4f46e5; }
         .cell.selected.box-bottom { box-shadow: inset 0 -2px 0 0 #9ca3af, inset 0 0 0 2px #4f46e5; }
         .cell.selected.box-right.box-bottom { box-shadow: inset -2px 0 0 0 #9ca3af, inset 0 -2px 0 0 #9ca3af, inset 0 0 0 2px #4f46e5; }
-        .conflict-box {
-            color: #b91c1c;
-            margin: 12px 0;
-            font-size: 0.9rem;
-            text-align: left;
-            background: #fee2e2;
-            padding: 8px 12px;
-            border-radius: 8px;
-        }
-        .conflict-box ul {
-            margin: 4px 0 0 16px;
-            padding: 0;
-        }
-        .new-game-btn {
-            padding: 8px 24px;
-            border-radius: 20px;
-            border: none;
-            background: #6366f1;
-            color: #fff;
-            font-weight: 600;
-            font-size: 0.95rem;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
+        /* =============================== */
+
+        .conflict-box { color: #b91c1c; margin: 12px 0; font-size: 0.9rem; text-align: left; background: #fee2e2; padding: 8px 12px; border-radius: 8px; }
+        .conflict-box ul { margin: 4px 0 0 16px; padding: 0; }
+        .new-game-btn { padding: 8px 24px; border-radius: 20px; border: none; background: #6366f1; color: #fff; font-weight: 600; font-size: 0.95rem; cursor: pointer; transition: background 0.2s; }
         .new-game-btn:hover { background: #4f46e5; }
-        .victory-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5);
-            display: flex; align-items: center; justify-content: center;
-            z-index: 100;
-        }
-        .victory-dialog {
-            background: #fff; padding: 28px 24px; border-radius: 16px;
-            text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        }
+        .victory-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
+        .victory-dialog { background: #fff; padding: 28px 24px; border-radius: 16px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
         .victory-dialog h3 { color: #16a34a; margin-bottom: 10px; }
-        .victory-dialog button {
-            margin-top: 14px; padding: 10px 26px; border-radius: 20px;
-            border: none; background: #16a34a; color: #fff; font-size: 1rem; cursor: pointer;
-        }
+        .victory-dialog button { margin-top: 14px; padding: 10px 26px; border-radius: 20px; border: none; background: #16a34a; color: #fff; font-size: 1rem; cursor: pointer; }
     </style>
 </head>
 <body>
 <div id="app">
     <h2>🧩 数独</h2>
-    <div class="num-pad">
-        <button v-for="n in 9" :key="n" class="num-btn" @click="inputNumber(n)">{{ n }}</button>
-    </div>
+    
     <div class="board">
         <template v-for="(row, r) in board" :key="r">
             <div v-for="(cell, c) in row" :key="c"
@@ -142,7 +109,14 @@
             </div>
         </template>
     </div>
-    <!-- 冲突提示文本 -->
+
+    <div class="num-pad-wrapper">
+        <div class="num-grid">
+            <button v-for="n in 9" :key="n" class="num-btn" @click="inputNumber(n)">{{ n }}</button>
+        </div>
+        <button class="num-btn clear-btn" @click="clearSelected"></button>
+    </div>
+
     <div v-if="conflictMessages.length > 0" class="conflict-box">
         <strong>⚠️ 冲突提示：</strong>
         <ul>
@@ -161,223 +135,208 @@
 </div>
 
 <script>
-    const { createApp } = Vue;
-    createApp({
-        data() {
-            return {
-                board: [],
-                solution: [],
-                selectedRow: null,
-                selectedCol: null,
-                gameComplete: false,
-                conflictMessages: [],     // 存储冲突文字说明
-            };
-        },
-        methods: {
-            generateSolution() {
-                const grid = Array.from({ length: 9 }, () => Array(9).fill(0));
-                const fillBox = (r, c) => {
-                    const nums = [1,2,3,4,5,6,7,8,9];
-                    this.shuffle(nums);
-                    let idx = 0;
-                    for (let i=r; i<r+3; i++)
-                        for (let j=c; j<c+3; j++)
-                            grid[i][j] = nums[idx++];
-                };
-                fillBox(0,0); fillBox(3,3); fillBox(6,6);
-                const solve = () => {
-                    for (let r=0; r<9; r++) {
-                        for (let c=0; c<9; c++) {
-                            if (grid[r][c] === 0) {
-                                const nums = [1,2,3,4,5,6,7,8,9];
-                                this.shuffle(nums);
-                                for (let num of nums) {
-                                    if (this.isValid(grid, r, c, num)) {
-                                        grid[r][c] = num;
-                                        if (solve()) return true;
-                                        grid[r][c] = 0;
-                                    }
-                                }
-                                return false;
-                            }
-                        }
-                    }
-                    return true;
-                };
-                solve();
-                return grid;
-            },
-            isValid(grid, row, col, num) {
-                for (let i=0; i<9; i++) {
-                    if (grid[row][i] === num || grid[i][col] === num) return false;
-                }
-                const br = Math.floor(row/3)*3, bc = Math.floor(col/3)*3;
-                for (let i=br; i<br+3; i++)
-                    for (let j=bc; j<bc+3; j++)
-                        if (grid[i][j] === num) return false;
-                return true;
-            },
-            shuffle(arr) {
-                for (let i=arr.length-1; i>0; i--) {
-                    const j = Math.floor(Math.random() * (i+1));
-                    [arr[i], arr[j]] = [arr[j], arr[i]];
-                }
-            },
-            createPuzzle(solution) {
-                const puzzle = solution.map(row => [...row]);
-                const positions = [];
-                for (let r=0; r<9; r++)
-                    for (let c=0; c<9; c++)
-                        positions.push({r,c});
-                this.shuffle(positions);
-                for (let i=0; i<35; i++) {
-                    const {r, c} = positions[i];
-                    puzzle[r][c] = 0;
-                }
-                return puzzle;
-            },
-            buildBoard(puzzle) {
-                this.board = [];
-                for (let r=0; r<9; r++) {
-                    const row = [];
-                    for (let c=0; c<9; c++) {
-                        row.push({
-                            value: puzzle[r][c],
-                            editable: puzzle[r][c] === 0,
-                            conflict: false,
-                        });
-                    }
-                    this.board.push(row);
-                }
-            },
-            initGame() {
-                this.solution = this.generateSolution();
-                const puzzle = this.createPuzzle(this.solution);
-                this.buildBoard(puzzle);
-                this.selectedRow = null;
-                this.selectedCol = null;
-                this.gameComplete = false;
-                this.conflictMessages = [];
-            },
-            selectCell(r, c) {
-                this.selectedRow = r;
-                this.selectedCol = c;
-            },
-            inputNumber(num) {
-                if (this.gameComplete) return;
-                if (this.selectedRow === null || this.selectedCol === null) return;
-                const cell = this.board[this.selectedRow][this.selectedCol];
-                if (!cell.editable) return;
-                if (cell.value === num) {
-                    cell.value = 0;
-                    cell.conflict = false;
-                } else {
-                    cell.value = num;
-                }
-                this.updateConflicts();
-                this.checkComplete();
-            },
-            // 全新冲突检测与文字提示
-            updateConflicts() {
-                // 重置所有冲突状态
-                for (let r = 0; r < 9; r++)
-                    for (let c = 0; c < 9; c++)
-                        this.board[r][c].conflict = false;
-                this.conflictMessages = [];
+class SudokuEngine {
+    static shuffle(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+    }
 
-                // 用于避免重复记录冲突
-                const rowRecord = new Set();
-                const colRecord = new Set();
-                const boxRecord = new Set();
+    static isValid(grid, row, col, num) {
+        for (let i = 0; i < 9; i++) {
+            if (grid[row][i] === num || grid[i][col] === num) return false;
+        }
+        const br = Math.floor(row / 3) * 3, bc = Math.floor(col / 3) * 3;
+        for (let i = br; i < br + 3; i++)
+            for (let j = bc; j < bc + 3; j++)
+                if (grid[i][j] === num) return false;
+        return true;
+    }
 
-                // 检查行冲突
-                for (let r = 0; r < 9; r++) {
-                    const vals = {};
-                    for (let c = 0; c < 9; c++) {
-                        const val = this.board[r][c].value;
-                        if (val === 0) continue;
-                        if (!vals[val]) vals[val] = [];
-                        vals[val].push(c);
-                    }
-                    for (let val in vals) {
-                        if (vals[val].length > 1) {
-                            vals[val].forEach(col => this.board[r][col].conflict = true);
-                            const key = `row-${r}-${val}`;
-                            if (!rowRecord.has(key)) {
-                                rowRecord.add(key);
-                                this.conflictMessages.push(`第${r+1}行有重复的数字 ${val}`);
-                            }
+    static solve(grid) {
+        for (let r = 0; r < 9; r++) {
+            for (let c = 0; c < 9; c++) {
+                if (grid[r][c] === 0) {
+                    const nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+                    SudokuEngine.shuffle(nums);
+                    for (let num of nums) {
+                        if (SudokuEngine.isValid(grid, r, c, num)) {
+                            grid[r][c] = num;
+                            if (SudokuEngine.solve(grid)) return true;
+                            grid[r][c] = 0;
                         }
                     }
+                    return false;
                 }
-
-                // 检查列冲突
-                for (let c = 0; c < 9; c++) {
-                    const vals = {};
-                    for (let r = 0; r < 9; r++) {
-                        const val = this.board[r][c].value;
-                        if (val === 0) continue;
-                        if (!vals[val]) vals[val] = [];
-                        vals[val].push(r);
-                    }
-                    for (let val in vals) {
-                        if (vals[val].length > 1) {
-                            vals[val].forEach(row => this.board[row][c].conflict = true);
-                            const key = `col-${c}-${val}`;
-                            if (!colRecord.has(key)) {
-                                colRecord.add(key);
-                                this.conflictMessages.push(`第${c+1}列有重复的数字 ${val}`);
-                            }
-                        }
-                    }
-                }
-
-                // 检查宫冲突
-                for (let box = 0; box < 9; box++) {
-                    const startR = Math.floor(box / 3) * 3;
-                    const startC = (box % 3) * 3;
-                    const vals = {};
-                    for (let r = startR; r < startR + 3; r++) {
-                        for (let c = startC; c < startC + 3; c++) {
-                            const val = this.board[r][c].value;
-                            if (val === 0) continue;
-                            if (!vals[val]) vals[val] = [];
-                            vals[val].push({r, c});
-                        }
-                    }
-                    for (let val in vals) {
-                        if (vals[val].length > 1) {
-                            vals[val].forEach(({r, c}) => this.board[r][c].conflict = true);
-                            const key = `box-${box}-${val}`;
-                            if (!boxRecord.has(key)) {
-                                boxRecord.add(key);
-                                const boxRow = Math.floor(box / 3) + 1;
-                                const boxCol = (box % 3) + 1;
-                                this.conflictMessages.push(`第${boxRow}行第${boxCol}列的宫中有重复的数字 ${val}`);
-                            }
-                        }
-                    }
-                }
-            },
-            checkComplete() {
-                for (let r = 0; r < 9; r++) {
-                    for (let c = 0; c < 9; c++) {
-                        const cell = this.board[r][c];
-                        if (cell.value === 0 || cell.conflict) return;
-                    }
-                }
-                this.gameComplete = true;
-                this.selectedRow = null;
-                this.selectedCol = null;
-            },
-            newGame() {
-                this.initGame();
             }
+        }
+        return true;
+    }
+
+    static generateSolution() {
+        const grid = Array.from({ length: 9 }, () => Array(9).fill(0));
+        const fillBox = (r, c) => {
+            const nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+            SudokuEngine.shuffle(nums);
+            let idx = 0;
+            for (let i = r; i < r + 3; i++)
+                for (let j = c; j < c + 3; j++)
+                    grid[i][j] = nums[idx++];
+        };
+        fillBox(0, 0); fillBox(3, 3); fillBox(6, 6);
+        SudokuEngine.solve(grid);
+        return grid;
+    }
+
+    static createPuzzle(solution, blanks = 35) {
+        const puzzle = solution.map(row => [...row]);
+        const positions = [];
+        for (let r = 0; r < 9; r++)
+            for (let c = 0; c < 9; c++)
+                positions.push({ r, c });
+        SudokuEngine.shuffle(positions);
+        for (let i = 0; i < blanks; i++) {
+            const { r, c } = positions[i];
+            puzzle[r][c] = 0;
+        }
+        return puzzle;
+    }
+
+    static checkRegion(grid, r1, c1, r2, c2) {
+        const startR = Math.min(r1, r2) - 1, endR = Math.max(r1, r2) - 1;
+        const startC = Math.min(c1, c2) - 1, endC = Math.max(c1, c2) - 1;
+        const values = [];
+        const posMap = {};
+        for (let r = startR; r <= endR; r++) {
+            for (let c = startC; c <= endC; c++) {
+                const val = grid[r][c];
+                if (val === 0) continue;
+                values.push(val);
+                if (!posMap[val]) posMap[val] = [];
+                posMap[val].push({ r, c });
+            }
+        }
+        if (new Set(values).size < values.length) {
+            const conflicts = [];
+            const duplicateValues = [];
+            for (let val in posMap) {
+                if (posMap[val].length > 1) {
+                    conflicts.push(...posMap[val]);
+                    duplicateValues.push(Number(val));
+                }
+            }
+            return { conflicts, duplicateValues };
+        }
+        return { conflicts: [], duplicateValues: [] };
+    }
+}
+
+const { createApp } = Vue;
+createApp({
+    data() {
+        return {
+            board: [],
+            selectedRow: null,
+            selectedCol: null,
+            gameComplete: false,
+            conflictMessages: [],
+        };
+    },
+    methods: {
+        initGame() {
+            const solution = SudokuEngine.generateSolution();
+            const puzzle = SudokuEngine.createPuzzle(solution);
+            this.board = puzzle.map(row => 
+                row.map(val => ({
+                    value: val,
+                    editable: val === 0,
+                    conflict: false,
+                }))
+            );
+            this.selectedRow = null;
+            this.selectedCol = null;
+            this.gameComplete = false;
+            this.conflictMessages = [];
         },
-        mounted() {
+        selectCell(r, c) {
+            this.selectedRow = r;
+            this.selectedCol = c;
+        },
+        inputNumber(num) {
+            if (this.gameComplete) return;
+            if (this.selectedRow === null || this.selectedCol === null) return;
+            const cell = this.board[this.selectedRow][this.selectedCol];
+            if (!cell.editable) return;
+            if (cell.value === num) {
+                cell.value = 0;
+                cell.conflict = false;
+            } else {
+                cell.value = num;
+            }
+            this.updateConflicts();
+            this.checkComplete();
+        },
+        clearSelected() {
+            if (this.gameComplete) return;
+            if (this.selectedRow === null || this.selectedCol === null) return;
+            const cell = this.board[this.selectedRow][this.selectedCol];
+            if (!cell.editable) return;
+            cell.value = 0;
+            cell.conflict = false;
+            this.updateConflicts();
+            this.checkComplete();
+        },
+        
+        updateConflicts() {
+            const grid = this.board.map(row => row.map(cell => cell.value));
+            const conflictMap = Array.from({ length: 9 }, () => Array(9).fill(false));
+            const messages = [];
+
+            const scanRegion = (r1, c1, r2, c2, label) => {
+                const result = SudokuEngine.checkRegion(grid, r1, c1, r2, c2);
+                result.conflicts.forEach(p => conflictMap[p.r][p.c] = true);
+                const uniqueValues = [...new Set(result.duplicateValues)];
+                uniqueValues.forEach(val => messages.push(`${label}有重复的数字 ${val}`));
+            };
+
+            for (let r = 1; r <= 9; r++) scanRegion(r, 1, r, 9, `第${r}行`);
+            for (let c = 1; c <= 9; c++) scanRegion(1, c, 9, c, `第${c}列`);
+            for (let b = 0; b < 9; b++) {
+                const startR = Math.floor(b / 3) * 3 + 1;
+                const startC = (b % 3) * 3 + 1;
+                const boxRow = Math.floor(b / 3) + 1;
+                const boxCol = (b % 3) + 1;
+                scanRegion(startR, startC, startR + 2, startC + 2, `第${boxRow}行第${boxCol}列的宫`);
+            }
+
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    this.board[r][c].conflict = conflictMap[r][c];
+                }
+            }
+            this.conflictMessages = messages;
+        },
+
+        checkComplete() {
+            for (let r = 0; r < 9; r++) {
+                for (let c = 0; c < 9; c++) {
+                    const cell = this.board[r][c];
+                    if (cell.value === 0 || cell.conflict) return;
+                }
+            }
+            this.gameComplete = true;
+            this.selectedRow = null;
+            this.selectedCol = null;
+        },
+        newGame() {
             this.initGame();
         }
-    }).mount('#app');
+    },
+    mounted() {
+        this.initGame();
+    }
+}).mount('#app');
 </script>
 </body>
-</html> 
+</html>
