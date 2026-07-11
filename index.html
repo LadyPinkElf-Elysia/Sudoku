@@ -71,7 +71,6 @@
             background: #f9fafb;
         }
 
-        /* 历史进度条样式 */
         .history-tracker {
             display: flex;
             flex-direction: column;
@@ -131,6 +130,18 @@
         
         .conflict-box { color: #b91c1c; margin: 12px 0; font-size: 0.9rem; text-align: left; background: #fee2e2; padding: 8px 12px; border-radius: 8px; }
         .conflict-box ul { margin: 4px 0 0 16px; padding: 0; }
+
+        /* 提示框样式 */
+        .hint-box {
+            color: #4f46e5;
+            margin: 8px 0;
+            font-size: 0.9rem;
+            text-align: center;
+            background: #eef2ff;
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid #c7d2fe;
+        }
         
         .bottom-row { display: flex; justify-content: center; gap: 12px; margin-top: 8px; }
         .btn { padding: 8px 24px; border-radius: 20px; border: none; cursor: pointer; font-weight: 600; font-size: 0.95rem; transition: background 0.2s; }
@@ -177,7 +188,6 @@
             <button class="action-btn" @click="giveHint" title="提示当前格">💡</button>
         </div>
 
-        <!-- 历史步数精准滑块 -->
         <div class="history-tracker" v-if="Object.keys(historyMap).length > 1">
             <div class="steps-info">
                 <span>起始</span>
@@ -190,6 +200,11 @@
                    :value="stepPointer" 
                    @input="jumpToStep" />
         </div>
+    </div>
+
+    <!-- 显示提示数字的盒子 -->
+    <div v-if="hintMessage" class="hint-box">
+        {{ hintMessage }}
     </div>
 
     <div v-if="conflictMessages.length > 0" class="conflict-box">
@@ -213,9 +228,7 @@
 </div>
 
 <script>
-// ==========================================
-// 1. 数独核心引擎（纯静态类）
-// ==========================================
+// 1. 数独核心引擎（纯静态）
 class SudokuEngine {
     static shuffle(arr) {
         for (let i = arr.length - 1; i > 0; i--) {
@@ -284,6 +297,7 @@ class SudokuEngine {
         return puzzle;
     }
 
+    // 获取候选数字
     static getLegalCandidates(grid, row, col) {
         if (grid[row][col] !== 0) return [];
         const candidates = [];
@@ -325,17 +339,13 @@ class SudokuEngine {
 }
 
 
-// ==========================================
-// 2. 历史记录管理器（极简版：只保留存和读）
-// ==========================================
+// 2. 历史记录管理器
 class SudokuHistory {
-    // 保存状态（返回新字典和新指针）
     static push(historyMap, stepPointer, gridSnapshot) {
         stepPointer++;
         const newSnapshot = gridSnapshot.map(row => [...row]);
         const newMap = { ...historyMap, [stepPointer]: newSnapshot };
 
-        // 发生新操作时，清理后续旧分支
         const keys = Object.keys(newMap).map(Number);
         for (let key of keys) {
             if (key > stepPointer) {
@@ -345,10 +355,6 @@ class SudokuHistory {
         return { newStepPointer: stepPointer, newHistoryMap: newMap };
     }
 
-    // 【核心方法】把指针移动到指定的步数
-    // 撤销: goTo(historyMap, stepPointer - 1)
-    // 重做: goTo(historyMap, stepPointer + 1)
-    // 跳转: goTo(historyMap, 目标步数)
     static goTo(historyMap, targetStep) {
         if (!historyMap[targetStep]) return null;
         return { targetStep, targetGrid: historyMap[targetStep] };
@@ -356,9 +362,7 @@ class SudokuHistory {
 }
 
 
-// ==========================================
-// 3. Vue 视图层（精简调度器）
-// ==========================================
+// 3. Vue 视图层
 const { createApp } = Vue;
 createApp({
     data() {
@@ -369,7 +373,8 @@ createApp({
             gameComplete: false,
             conflictMessages: [],
             historyMap: {},
-            stepPointer: -1
+            stepPointer: -1,
+            hintMessage: ''
         };
     },
     methods: {
@@ -390,15 +395,16 @@ createApp({
             this.checkComplete();
             this.selectedRow = null;
             this.selectedCol = null;
+            this.hintMessage = '';
         },
 
         saveState() {
             const result = SudokuHistory.push(this.historyMap, this.stepPointer, this.getGridSnapshot());
             this.historyMap = result.newHistoryMap;
             this.stepPointer = result.newStepPointer;
+            this.hintMessage = '';
         },
 
-        // 统一步数移动方法（传入目标步数）
         movePointer(targetStep) {
             const result = SudokuHistory.goTo(this.historyMap, targetStep);
             if (result) {
@@ -407,24 +413,35 @@ createApp({
             }
         },
 
-        // 前端触发器
         undo() { this.movePointer(this.stepPointer - 1); },
         redo() { this.movePointer(this.stepPointer + 1); },
         jumpToStep(event) { this.movePointer(parseInt(event.target.value)); },
 
+        // 智能提示（只显示候选，不填坑）
         giveHint() {
-            if (this.selectedRow === null || this.selectedCol === null) return;
+            if (this.selectedRow === null || this.selectedCol === null) {
+                this.hintMessage = '💡 请先在棋盘上点击选中一个空格';
+                return;
+            }
             const row = this.selectedRow, col = this.selectedCol;
             const cell = this.board[row][col];
-            if (!cell.editable || cell.value !== 0) return;
+            
+            if (!cell.editable) {
+                this.hintMessage = '💡 此格是初始题目，不可编辑';
+                return;
+            }
+            if (cell.value !== 0) {
+                this.hintMessage = '💡 此格已填入数字';
+                return;
+            }
 
             const candidates = SudokuEngine.getLegalCandidates(this.getGridSnapshot(), row, col);
-            if (candidates.length === 0) return;
-
-            this.saveState();
-            cell.value = candidates[Math.floor(Math.random() * candidates.length)];
-            this.updateConflicts();
-            this.checkComplete();
+            if (candidates.length === 0) {
+                // === 优化提示：没数可填时明确告知 ===
+                this.hintMessage = '💡 此格当前没有任何合法数字可以填入，请检查盘面是否有冲突';
+            } else {
+                this.hintMessage = `💡 此格可以填：${candidates.join('、')}`;
+            }
         },
 
         initGame() {
@@ -437,12 +454,14 @@ createApp({
             this.conflictMessages = [];
             this.historyMap = {};
             this.stepPointer = -1;
-            this.saveState(); // 初始状态为第0步
+            this.hintMessage = '';
+            this.saveState();
         },
 
         selectCell(r, c) {
             this.selectedRow = r;
             this.selectedCol = c;
+            this.hintMessage = '';
         },
 
         inputNumber(num) {
@@ -502,6 +521,7 @@ createApp({
             this.gameComplete = true;
             this.selectedRow = null;
             this.selectedCol = null;
+            this.hintMessage = '';
         },
 
         newGame() { this.initGame(); }
