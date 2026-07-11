@@ -3,518 +3,95 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>数独</title>
-    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: #f0f4f8; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; padding: 16px; }
-        #app { background: #fff; padding: 20px; border-radius: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.06); max-width: 420px; width: 100%; text-align: center; }
-        h2 { margin-bottom: 16px; color: #2d3748; font-size: 1.4rem; }
-        
-        .num-pad-wrapper {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 12px;
-            margin-top: 16px;
-            margin-bottom: 14px;
+    <title>数独 - 极速版</title>
+    <link rel="stylesheet" href="styles/style.css">
+    <script type="importmap">
+        {
+            "imports": {
+                "vue": "https://unpkg.com/vue@3/dist/vue.esm-browser.prod.js"
+            }
         }
-        .num-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 6px;
-            width: fit-content;
-            margin: 0 auto;
-        }
-        .num-btn {
-            width: 38px; height: 38px;
-            border-radius: 50%;
-            border: 2px solid #d1d5db;
-            background: #fff;
-            font-size: 1.1rem;
-            font-weight: 600;
-            cursor: pointer;
-            color: #374151;
-            transition: 0.15s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .num-btn:hover { background: #eef2ff; border-color: #6366f1; }
-        .num-btn.clear-btn { font-size: 1.2rem; line-height: 1; }
-        .num-btn.clear-btn:hover { background: #eef2ff; border-color: #6366f1; }
-
-        .action-row {
-            display: flex;
-            justify-content: center;
-            gap: 8px;
-            width: 100%;
-        }
-        .action-btn {
-            width: 38px; height: 38px;
-            border-radius: 50%;
-            border: 2px solid #d1d5db;
-            background: #fff;
-            cursor: pointer;
-            color: #374151;
-            transition: 0.15s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1rem;
-            padding: 0;
-        }
-        .action-btn:hover { background: #eef2ff; border-color: #6366f1; }
-        .action-btn:disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
-            background: #f9fafb;
-        }
-
-        /* 历史步骤横排滚动条样式 */
-        .history-steps-container {
-            display: flex;
-            flex-wrap: nowrap;
-            overflow-x: auto;
-            gap: 6px;
-            width: 100%;
-            padding: 4px 0;
-            scrollbar-width: thin;
-            scrollbar-color: #cbd5e1 #f1f5f9;
-        }
-        .history-steps-container::-webkit-scrollbar {
-            height: 6px;
-        }
-        .history-steps-container::-webkit-scrollbar-track {
-            background: #f1f5f9;
-            border-radius: 10px;
-        }
-        .history-steps-container::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 10px;
-        }
-        .history-steps-container::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
-        }
-
-        .step-block {
-            flex: 0 0 auto;
-            min-width: 32px;
-            height: 32px;
-            border-radius: 6px;
-            border: 1px solid #e2e8f0;
-            background: #f8fafc;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.8rem;
-            color: #475569;
-            cursor: pointer;
-            transition: all 0.15s;
-            padding: 0 6px;
-        }
-        .step-block:hover {
-            background: #eef2ff;
-            border-color: #a5b4fc;
-        }
-        .step-block.active {
-            background: #6366f1;
-            border-color: #4f46e5;
-            color: #fff;
-            font-weight: 600;
-        }
-
-        .board { display: grid; grid-template-columns: repeat(9, 1fr); gap: 1px; background: #9ca3af; border: 3px solid #9ca3af; border-radius: 6px; aspect-ratio: 1; }
-        .cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; background: #fff; font-size: clamp(1rem, 4.5vw, 1.4rem); font-weight: 600; cursor: pointer; user-select: none; transition: background 0.1s; }
-        .cell.given { color: #1f2937; }
-        .cell.user { color: #4f46e5; }
-        .cell.selected { background: #dbeafe; box-shadow: inset 0 0 0 2px #4f46e5; }
-        
-        .cell.user.conflict {
-            background: #fee2e2 !important;
-            color: #b91c1c !important;
-            box-shadow: inset 0 0 0 2px #b91c1c !important;
-        }
-        .cell.given.conflict {
-            background: #fff !important;
-            color: #1f2937 !important;
-            box-shadow: inset 0 0 0 3px #eab308 !important;
-        }
-        
-        .cell.box-right { box-shadow: inset -2px 0 0 0 #9ca3af; }
-        .cell.box-bottom { box-shadow: inset 0 -2px 0 0 #9ca3af; }
-        .cell.box-right.box-bottom { box-shadow: inset -2px 0 0 0 #9ca3af, inset 0 -2px 0 0 #9ca3af; }
-        .cell.selected.box-right { box-shadow: inset -2px 0 0 0 #9ca3af, inset 0 0 0 2px #4f46e5; }
-        .cell.selected.box-bottom { box-shadow: inset 0 -2px 0 0 #9ca3af, inset 0 0 0 2px #4f46e5; }
-        .cell.selected.box-right.box-bottom { box-shadow: inset -2px 0 0 0 #9ca3af, inset 0 -2px 0 0 #9ca3af, inset 0 0 0 2px #4f46e5; }
-        
-        .conflict-box { color: #b91c1c; margin: 12px 0; font-size: 0.9rem; text-align: left; background: #fee2e2; padding: 8px 12px; border-radius: 8px; }
-        .conflict-box ul { margin: 4px 0 0 16px; padding: 0; }
-
-        .hint-box {
-            color: #4f46e5;
-            margin: 8px 0;
-            font-size: 0.9rem;
-            text-align: center;
-            background: #eef2ff;
-            padding: 8px 12px;
-            border-radius: 8px;
-            border: 1px solid #c7d2fe;
-        }
-        
-        .bottom-row { display: flex; justify-content: center; gap: 12px; margin-top: 8px; }
-        .btn { padding: 8px 24px; border-radius: 20px; border: none; cursor: pointer; font-weight: 600; font-size: 0.95rem; transition: background 0.2s; }
-        .btn-primary { background: #6366f1; color: #fff; }
-        .btn-primary:hover { background: #4f46e5; }
-        
-        .victory-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
-        .victory-dialog { background: #fff; padding: 28px 24px; border-radius: 16px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
-        .victory-dialog h3 { color: #16a34a; margin-bottom: 10px; }
-        .victory-dialog button { margin-top: 14px; padding: 10px 26px; border-radius: 20px; border: none; background: #16a34a; color: #fff; font-size: 1rem; cursor: pointer; }
-    </style>
+    </script>
 </head>
 <body>
-<div id="app">
-    <h2>🧩 数独</h2>
-    
-    <div class="board">
-        <template v-for="(row, r) in board" :key="r">
-            <div v-for="(cell, c) in row" :key="c"
-                 class="cell"
-                 :class="{
-                     given: !cell.editable,
-                     user: cell.editable && cell.value !== 0,
-                     selected: selectedRow === r && selectedCol === c,
-                     conflict: cell.conflict,
-                     'box-right': c === 2 || c === 5,
-                     'box-bottom': r === 2 || r === 5
-                 }"
-                 @click="selectCell(r, c)">
-                {{ cell.value || '' }}
-            </div>
-        </template>
-    </div>
-
-    <div class="num-pad-wrapper">
-        <div class="num-grid">
-            <button v-for="n in 9" :key="n" class="num-btn" @click="inputNumber(n)">{{ n }}</button>
-        </div>
-        <button class="num-btn clear-btn" @click="clearSelected"></button>
+    <div id="app">
+        <h2>🧩 数独 - {{ getSizeLabel }} ({{ currentDifficulty }}难度)</h2>
         
-        <div class="action-row">
-            <button class="action-btn" @click="undo" :disabled="stepPointer <= 0" title="撤回 (Ctrl+Z)">↩️</button>
-            <button class="action-btn" @click="redo" :disabled="!historyMap[stepPointer + 1]" title="重做 (Ctrl+Y)">↪️</button>
-            <button class="action-btn" @click="giveHint" title="提示当前格">💡</button>
+        <!-- 下拉菜单生成时禁用 -->
+        <div class="mode-bar">
+            <select v-model="currentBoxSize" :disabled="isGenerating">
+                <option :value="3">标准 (3x3宫格)</option>
+                <option :value="4">进阶 (4x4宫格)</option>
+                <option :value="5">专家 (5x5宫格)</option>
+            </select>
+            <select v-model="currentDifficulty" :disabled="isGenerating">
+                <option value="easy">😊 简单</option>
+                <option value="medium">🤔 中等</option>
+                <option value="hard">💀 困难</option>
+            </select>
         </div>
 
-        <!-- 横向步骤格子和滚动条 -->
-        <div class="history-steps-container" v-if="stepKeys.length > 1">
-            <div v-for="step in stepKeys" :key="step"
-                 class="step-block"
-                 :class="{ active: stepPointer === step }"
-                 @click="movePointer(step)">
-                第{{ step + 1 }}步
+        <div class="board" :style="{ gridTemplateColumns: `repeat(${SIZE}, minmax(0, 1fr))` }">
+            <template v-for="(row, r) in board" :key="r">
+                <div v-for="(cell, c) in row" :key="c"
+                     class="cell"
+                     :class="{
+                         given: !cell.editable,
+                         user: cell.editable && cell.value !== 0,
+                         selected: selectedRow === r && selectedCol === c,
+                         conflict: cell.conflict,
+                         'box-right': (c + 1) % BOX_SIZE === 0 && c !== SIZE - 1,
+                         'box-bottom': (r + 1) % BOX_SIZE === 0 && r !== SIZE - 1
+                     }"
+                     @click="selectCell(r, c)">
+                    {{ cell.value || '' }}
+                </div>
+            </template>
+        </div>
+
+        <div class="num-pad-wrapper">
+            <div class="num-grid" :style="{ gridTemplateColumns: `repeat(${BOX_SIZE}, minmax(0, 1fr))` }">
+                <button v-for="n in SIZE" :key="n" class="num-btn" @click="inputNumber(n)">{{ n }}</button>
+            </div>
+            <button class="num-btn clear-btn" @click="clearSelected"></button>
+            
+            <div class="action-row">
+                <button class="action-btn" @click="undo" :disabled="stepPointer <= 0 || isGenerating" title="撤回">↩️</button>
+                <button class="action-btn" @click="redo" :disabled="!historyMap[stepPointer + 1] || isGenerating" title="重做">↪️</button>
+                <button class="action-btn" @click="giveHint" :disabled="isGenerating" title="提示">💡</button>
+            </div>
+
+            <div class="history-steps-container" v-if="stepKeys.length > 1">
+                <div v-for="step in stepKeys" :key="step"
+                     class="step-block"
+                     :class="{ active: stepPointer === step }"
+                     @click="movePointer(step)">
+                    第{{ step + 1 }}步
+                </div>
+            </div>
+        </div>
+
+        <div v-if="hintMessage" class="hint-box">{{ hintMessage }}</div>
+        <div v-if="conflictMessages.length > 0" class="conflict-box">
+            <strong>⚠️ 冲突提示：</strong>
+            <ul>
+                <li v-for="msg in conflictMessages" :key="msg">{{ msg }}</li>
+            </ul>
+        </div>
+
+        <div class="bottom-row">
+            <button class="btn btn-primary" @click="newGame" :disabled="isGenerating">🔄 新游戏</button>
+        </div>
+
+        <div class="victory-overlay" v-if="gameComplete">
+            <div class="victory-dialog">
+                <h3>🎉 恭喜完成！</h3>
+                <p>你成功解开了 {{ SIZE }}x{{ SIZE }} 的数独！</p>
+                <button @click="newGame">再来一局</button>
             </div>
         </div>
     </div>
 
-    <div v-if="hintMessage" class="hint-box">
-        {{ hintMessage }}
-    </div>
-
-    <div v-if="conflictMessages.length > 0" class="conflict-box">
-        <strong>⚠️ 冲突提示：</strong>
-        <ul>
-            <li v-for="msg in conflictMessages" :key="msg">{{ msg }}</li>
-        </ul>
-    </div>
-
-    <div class="bottom-row">
-        <button class="btn btn-primary" @click="newGame">🔄 新游戏</button>
-    </div>
-
-    <div class="victory-overlay" v-if="gameComplete">
-        <div class="victory-dialog">
-            <h3>🎉 恭喜完成！</h3>
-            <p>你成功解开了数独！</p>
-            <button @click="newGame">再来一局</button>
-        </div>
-    </div>
-</div>
-
-<script>
-class SudokuEngine {
-    static shuffle(arr) {
-        for (let i = arr.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [arr[i], arr[j]] = [arr[j], arr[i]];
-        }
-    }
-    static isValid(grid, row, col, num) {
-        for (let i = 0; i < 9; i++) {
-            if (grid[row][i] === num || grid[i][col] === num) return false;
-        }
-        const br = Math.floor(row / 3) * 3, bc = Math.floor(col / 3) * 3;
-        for (let i = br; i < br + 3; i++)
-            for (let j = bc; j < bc + 3; j++)
-                if (grid[i][j] === num) return false;
-        return true;
-    }
-    static solve(grid) {
-        for (let r = 0; r < 9; r++) {
-            for (let c = 0; c < 9; c++) {
-                if (grid[r][c] === 0) {
-                    const nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-                    SudokuEngine.shuffle(nums);
-                    for (let num of nums) {
-                        if (SudokuEngine.isValid(grid, r, c, num)) {
-                            grid[r][c] = num;
-                            if (SudokuEngine.solve(grid)) return true;
-                            grid[r][c] = 0;
-                        }
-                    }
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-    static generateSolution() {
-        const grid = Array.from({ length: 9 }, () => Array(9).fill(0));
-        const fillBox = (r, c) => {
-            const nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-            SudokuEngine.shuffle(nums);
-            let idx = 0;
-            for (let i = r; i < r + 3; i++)
-                for (let j = c; j < c + 3; j++)
-                    grid[i][j] = nums[idx++];
-        };
-        fillBox(0, 0); fillBox(3, 3); fillBox(6, 6);
-        SudokuEngine.solve(grid);
-        return grid;
-    }
-    static createPuzzle(solution, blanks = 35) {
-        const puzzle = solution.map(row => [...row]);
-        const positions = [];
-        for (let r = 0; r < 9; r++)
-            for (let c = 0; c < 9; c++)
-                positions.push({ r, c });
-        SudokuEngine.shuffle(positions);
-        for (let i = 0; i < blanks; i++) {
-            const { r, c } = positions[i];
-            puzzle[r][c] = 0;
-        }
-        return puzzle;
-    }
-    static getLegalCandidates(grid, row, col) {
-        if (grid[row][col] !== 0) return [];
-        const candidates = [];
-        for (let num = 1; num <= 9; num++) {
-            if (SudokuEngine.isValid(grid, row, col, num)) {
-                candidates.push(num);
-            }
-        }
-        return candidates;
-    }
-    static checkRegion(grid, r1, c1, r2, c2) {
-        const startR = Math.min(r1, r2) - 1, endR = Math.max(r1, r2) - 1;
-        const startC = Math.min(c1, c2) - 1, endC = Math.max(c1, c2) - 1;
-        const values = [];
-        const posMap = {};
-        for (let r = startR; r <= endR; r++) {
-            for (let c = startC; c <= endC; c++) {
-                const val = grid[r][c];
-                if (val === 0) continue;
-                values.push(val);
-                if (!posMap[val]) posMap[val] = [];
-                posMap[val].push({ r, c });
-            }
-        }
-        if (new Set(values).size < values.length) {
-            const conflicts = [];
-            const duplicateValues = [];
-            for (let val in posMap) {
-                if (posMap[val].length > 1) {
-                    conflicts.push(...posMap[val]);
-                    duplicateValues.push(Number(val));
-                }
-            }
-            return { conflicts, duplicateValues };
-        }
-        return { conflicts: [], duplicateValues: [] };
-    }
-}
-
-class SudokuHistory {
-    static push(historyMap, stepPointer, gridSnapshot) {
-        stepPointer++;
-        const newSnapshot = gridSnapshot.map(row => [...row]);
-        const newMap = { ...historyMap, [stepPointer]: newSnapshot };
-        const keys = Object.keys(newMap).map(Number);
-        for (let key of keys) {
-            if (key > stepPointer) {
-                delete newMap[key];
-            }
-        }
-        return { newStepPointer: stepPointer, newHistoryMap: newMap };
-    }
-    static goTo(historyMap, targetStep) {
-        if (!historyMap[targetStep]) return null;
-        return { targetStep, targetGrid: historyMap[targetStep] };
-    }
-}
-
-const { createApp } = Vue;
-createApp({
-    data() {
-        return {
-            board: [],
-            selectedRow: null,
-            selectedCol: null,
-            gameComplete: false,
-            conflictMessages: [],
-            historyMap: {},
-            stepPointer: -1,
-            hintMessage: ''
-        };
-    },
-    computed: {
-        // 获取所有历史步骤的键（按从小到大排序）
-        stepKeys() {
-            return Object.keys(this.historyMap).map(Number).sort((a, b) => a - b);
-        }
-    },
-    methods: {
-        getGridSnapshot() {
-            return this.board.map(row => row.map(cell => cell.value));
-        },
-        applyGrid(gridData) {
-            for (let r = 0; r < 9; r++) {
-                for (let c = 0; c < 9; c++) {
-                    const cell = this.board[r][c];
-                    const newVal = gridData[r][c];
-                    if (cell.value !== newVal) cell.value = newVal;
-                    cell.conflict = false;
-                }
-            }
-            this.updateConflicts();
-            this.checkComplete();
-            this.selectedRow = null;
-            this.selectedCol = null;
-            this.hintMessage = '';
-        },
-        saveState() {
-            const result = SudokuHistory.push(this.historyMap, this.stepPointer, this.getGridSnapshot());
-            this.historyMap = result.newHistoryMap;
-            this.stepPointer = result.newStepPointer;
-            this.hintMessage = '';
-        },
-        movePointer(targetStep) {
-            const result = SudokuHistory.goTo(this.historyMap, targetStep);
-            if (result) {
-                this.stepPointer = result.targetStep;
-                this.applyGrid(result.targetGrid);
-            }
-        },
-        undo() { this.movePointer(this.stepPointer - 1); },
-        redo() { this.movePointer(this.stepPointer + 1); },
-        giveHint() {
-            if (this.selectedRow === null || this.selectedCol === null) {
-                this.hintMessage = '💡 请先在棋盘上点击选中一个空格';
-                return;
-            }
-            const row = this.selectedRow, col = this.selectedCol;
-            const cell = this.board[row][col];
-            if (!cell.editable) {
-                this.hintMessage = '💡 此格是初始题目，不可编辑';
-                return;
-            }
-            if (cell.value !== 0) {
-                this.hintMessage = '💡 此格已填入数字';
-                return;
-            }
-            const candidates = SudokuEngine.getLegalCandidates(this.getGridSnapshot(), row, col);
-            if (candidates.length === 0) {
-                this.hintMessage = '💡 此格当前没有任何合法数字可以填入，请检查盘面是否有冲突';
-            } else {
-                this.hintMessage = `💡 此格可以填：${candidates.join('、')}`;
-            }
-        },
-        initGame() {
-            const solution = SudokuEngine.generateSolution();
-            const puzzle = SudokuEngine.createPuzzle(solution);
-            this.board = puzzle.map(row => row.map(val => ({ value: val, editable: val === 0, conflict: false })));
-            this.selectedRow = null;
-            this.selectedCol = null;
-            this.gameComplete = false;
-            this.conflictMessages = [];
-            this.historyMap = {};
-            this.stepPointer = -1;
-            this.hintMessage = '';
-            this.saveState(); // 保存第 0 步，UI 显示为第 1 步
-        },
-        selectCell(r, c) {
-            this.selectedRow = r;
-            this.selectedCol = c;
-            this.hintMessage = '';
-        },
-        inputNumber(num) {
-            if (this.gameComplete || this.selectedRow === null) return;
-            const cell = this.board[this.selectedRow][this.selectedCol];
-            if (!cell.editable) return;
-            this.saveState();
-            cell.value = (cell.value === num) ? 0 : num;
-            this.updateConflicts();
-            this.checkComplete();
-        },
-        clearSelected() {
-            if (this.gameComplete || this.selectedRow === null) return;
-            const cell = this.board[this.selectedRow][this.selectedCol];
-            if (!cell.editable) return;
-            this.saveState();
-            cell.value = 0;
-            this.updateConflicts();
-            this.checkComplete();
-        },
-        updateConflicts() {
-            const grid = this.board.map(row => row.map(cell => cell.value));
-            const conflictMap = Array.from({ length: 9 }, () => Array(9).fill(false));
-            const messages = [];
-            const scanRegion = (r1, c1, r2, c2, label) => {
-                const result = SudokuEngine.checkRegion(grid, r1, c1, r2, c2);
-                result.conflicts.forEach(p => conflictMap[p.r][p.c] = true);
-                [...new Set(result.duplicateValues)].forEach(val => messages.push(`${label}有重复的数字 ${val}`));
-            };
-            for (let r = 1; r <= 9; r++) scanRegion(r, 1, r, 9, `第${r}行`);
-            for (let c = 1; c <= 9; c++) scanRegion(1, c, 9, c, `第${c}列`);
-            for (let b = 0; b < 9; b++) {
-                const startR = Math.floor(b / 3) * 3 + 1;
-                const startC = (b % 3) * 3 + 1;
-                const boxRow = Math.floor(b / 3) + 1;
-                const boxCol = (b % 3) + 1;
-                scanRegion(startR, startC, startR + 2, startC + 2, `第${boxRow}行第${boxCol}列的宫`);
-            }
-            for (let r = 0; r < 9; r++) 
-                for (let c = 0; c < 9; c++) 
-                    this.board[r][c].conflict = conflictMap[r][c];
-            this.conflictMessages = messages;
-        },
-        checkComplete() {
-            for (let r = 0; r < 9; r++) {
-                for (let c = 0; c < 9; c++) {
-                    const cell = this.board[r][c];
-                    if (cell.value === 0 || cell.conflict) return;
-                }
-            }
-            this.gameComplete = true;
-            this.selectedRow = null;
-            this.selectedCol = null;
-            this.hintMessage = '';
-        },
-        newGame() { this.initGame(); }
-    },
-    mounted() { this.initGame(); }
-}).mount('#app');
-</script>
+    <script type="module" src="main.js"></script>
 </body>
 </html>
