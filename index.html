@@ -71,37 +71,57 @@
             background: #f9fafb;
         }
 
-        .history-tracker {
+        /* 历史步骤横排滚动条样式 */
+        .history-steps-container {
             display: flex;
-            flex-direction: column;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            gap: 6px;
+            width: 100%;
+            padding: 4px 0;
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 #f1f5f9;
+        }
+        .history-steps-container::-webkit-scrollbar {
+            height: 6px;
+        }
+        .history-steps-container::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 10px;
+        }
+        .history-steps-container::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        .history-steps-container::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        .step-block {
+            flex: 0 0 auto;
+            min-width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            display: flex;
             align-items: center;
-            width: 100%;
-            gap: 4px;
-            padding: 0 4px;
-        }
-        .history-tracker .steps-info {
+            justify-content: center;
             font-size: 0.8rem;
-            color: #6b7280;
-            display: flex;
-            justify-content: space-between;
-            width: 100%;
-        }
-        .history-tracker input[type="range"] {
-            width: 100%;
-            height: 4px;
-            -webkit-appearance: none;
-            background: #d1d5db;
-            border-radius: 2px;
-            outline: none;
-        }
-        .history-tracker input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background: #6366f1;
+            color: #475569;
             cursor: pointer;
+            transition: all 0.15s;
+            padding: 0 6px;
+        }
+        .step-block:hover {
+            background: #eef2ff;
+            border-color: #a5b4fc;
+        }
+        .step-block.active {
+            background: #6366f1;
+            border-color: #4f46e5;
+            color: #fff;
+            font-weight: 600;
         }
 
         .board { display: grid; grid-template-columns: repeat(9, 1fr); gap: 1px; background: #9ca3af; border: 3px solid #9ca3af; border-radius: 6px; aspect-ratio: 1; }
@@ -131,7 +151,6 @@
         .conflict-box { color: #b91c1c; margin: 12px 0; font-size: 0.9rem; text-align: left; background: #fee2e2; padding: 8px 12px; border-radius: 8px; }
         .conflict-box ul { margin: 4px 0 0 16px; padding: 0; }
 
-        /* 提示框样式 */
         .hint-box {
             color: #4f46e5;
             margin: 8px 0;
@@ -188,21 +207,17 @@
             <button class="action-btn" @click="giveHint" title="提示当前格">💡</button>
         </div>
 
-        <div class="history-tracker" v-if="Object.keys(historyMap).length > 1">
-            <div class="steps-info">
-                <span>起始</span>
-                <span>当前历史：第 {{ stepPointer }} 步</span>
-                <span>最新</span>
+        <!-- 横向步骤格子和滚动条 -->
+        <div class="history-steps-container" v-if="stepKeys.length > 1">
+            <div v-for="step in stepKeys" :key="step"
+                 class="step-block"
+                 :class="{ active: stepPointer === step }"
+                 @click="movePointer(step)">
+                第{{ step + 1 }}步
             </div>
-            <input type="range" 
-                   :min="0" 
-                   :max="Object.keys(historyMap).length - 1" 
-                   :value="stepPointer" 
-                   @input="jumpToStep" />
         </div>
     </div>
 
-    <!-- 显示提示数字的盒子 -->
     <div v-if="hintMessage" class="hint-box">
         {{ hintMessage }}
     </div>
@@ -228,7 +243,6 @@
 </div>
 
 <script>
-// 1. 数独核心引擎（纯静态）
 class SudokuEngine {
     static shuffle(arr) {
         for (let i = arr.length - 1; i > 0; i--) {
@@ -236,7 +250,6 @@ class SudokuEngine {
             [arr[i], arr[j]] = [arr[j], arr[i]];
         }
     }
-
     static isValid(grid, row, col, num) {
         for (let i = 0; i < 9; i++) {
             if (grid[row][i] === num || grid[i][col] === num) return false;
@@ -247,7 +260,6 @@ class SudokuEngine {
                 if (grid[i][j] === num) return false;
         return true;
     }
-
     static solve(grid) {
         for (let r = 0; r < 9; r++) {
             for (let c = 0; c < 9; c++) {
@@ -267,7 +279,6 @@ class SudokuEngine {
         }
         return true;
     }
-
     static generateSolution() {
         const grid = Array.from({ length: 9 }, () => Array(9).fill(0));
         const fillBox = (r, c) => {
@@ -282,7 +293,6 @@ class SudokuEngine {
         SudokuEngine.solve(grid);
         return grid;
     }
-
     static createPuzzle(solution, blanks = 35) {
         const puzzle = solution.map(row => [...row]);
         const positions = [];
@@ -296,8 +306,6 @@ class SudokuEngine {
         }
         return puzzle;
     }
-
-    // 获取候选数字
     static getLegalCandidates(grid, row, col) {
         if (grid[row][col] !== 0) return [];
         const candidates = [];
@@ -308,7 +316,6 @@ class SudokuEngine {
         }
         return candidates;
     }
-
     static checkRegion(grid, r1, c1, r2, c2) {
         const startR = Math.min(r1, r2) - 1, endR = Math.max(r1, r2) - 1;
         const startC = Math.min(c1, c2) - 1, endC = Math.max(c1, c2) - 1;
@@ -338,14 +345,11 @@ class SudokuEngine {
     }
 }
 
-
-// 2. 历史记录管理器
 class SudokuHistory {
     static push(historyMap, stepPointer, gridSnapshot) {
         stepPointer++;
         const newSnapshot = gridSnapshot.map(row => [...row]);
         const newMap = { ...historyMap, [stepPointer]: newSnapshot };
-
         const keys = Object.keys(newMap).map(Number);
         for (let key of keys) {
             if (key > stepPointer) {
@@ -354,15 +358,12 @@ class SudokuHistory {
         }
         return { newStepPointer: stepPointer, newHistoryMap: newMap };
     }
-
     static goTo(historyMap, targetStep) {
         if (!historyMap[targetStep]) return null;
         return { targetStep, targetGrid: historyMap[targetStep] };
     }
 }
 
-
-// 3. Vue 视图层
 const { createApp } = Vue;
 createApp({
     data() {
@@ -377,11 +378,16 @@ createApp({
             hintMessage: ''
         };
     },
+    computed: {
+        // 获取所有历史步骤的键（按从小到大排序）
+        stepKeys() {
+            return Object.keys(this.historyMap).map(Number).sort((a, b) => a - b);
+        }
+    },
     methods: {
         getGridSnapshot() {
             return this.board.map(row => row.map(cell => cell.value));
         },
-
         applyGrid(gridData) {
             for (let r = 0; r < 9; r++) {
                 for (let c = 0; c < 9; c++) {
@@ -397,14 +403,12 @@ createApp({
             this.selectedCol = null;
             this.hintMessage = '';
         },
-
         saveState() {
             const result = SudokuHistory.push(this.historyMap, this.stepPointer, this.getGridSnapshot());
             this.historyMap = result.newHistoryMap;
             this.stepPointer = result.newStepPointer;
             this.hintMessage = '';
         },
-
         movePointer(targetStep) {
             const result = SudokuHistory.goTo(this.historyMap, targetStep);
             if (result) {
@@ -412,12 +416,8 @@ createApp({
                 this.applyGrid(result.targetGrid);
             }
         },
-
         undo() { this.movePointer(this.stepPointer - 1); },
         redo() { this.movePointer(this.stepPointer + 1); },
-        jumpToStep(event) { this.movePointer(parseInt(event.target.value)); },
-
-        // 智能提示（只显示候选，不填坑）
         giveHint() {
             if (this.selectedRow === null || this.selectedCol === null) {
                 this.hintMessage = '💡 请先在棋盘上点击选中一个空格';
@@ -425,7 +425,6 @@ createApp({
             }
             const row = this.selectedRow, col = this.selectedCol;
             const cell = this.board[row][col];
-            
             if (!cell.editable) {
                 this.hintMessage = '💡 此格是初始题目，不可编辑';
                 return;
@@ -434,16 +433,13 @@ createApp({
                 this.hintMessage = '💡 此格已填入数字';
                 return;
             }
-
             const candidates = SudokuEngine.getLegalCandidates(this.getGridSnapshot(), row, col);
             if (candidates.length === 0) {
-                // === 优化提示：没数可填时明确告知 ===
                 this.hintMessage = '💡 此格当前没有任何合法数字可以填入，请检查盘面是否有冲突';
             } else {
                 this.hintMessage = `💡 此格可以填：${candidates.join('、')}`;
             }
         },
-
         initGame() {
             const solution = SudokuEngine.generateSolution();
             const puzzle = SudokuEngine.createPuzzle(solution);
@@ -455,15 +451,13 @@ createApp({
             this.historyMap = {};
             this.stepPointer = -1;
             this.hintMessage = '';
-            this.saveState();
+            this.saveState(); // 保存第 0 步，UI 显示为第 1 步
         },
-
         selectCell(r, c) {
             this.selectedRow = r;
             this.selectedCol = c;
             this.hintMessage = '';
         },
-
         inputNumber(num) {
             if (this.gameComplete || this.selectedRow === null) return;
             const cell = this.board[this.selectedRow][this.selectedCol];
@@ -473,7 +467,6 @@ createApp({
             this.updateConflicts();
             this.checkComplete();
         },
-
         clearSelected() {
             if (this.gameComplete || this.selectedRow === null) return;
             const cell = this.board[this.selectedRow][this.selectedCol];
@@ -483,18 +476,15 @@ createApp({
             this.updateConflicts();
             this.checkComplete();
         },
-
         updateConflicts() {
             const grid = this.board.map(row => row.map(cell => cell.value));
             const conflictMap = Array.from({ length: 9 }, () => Array(9).fill(false));
             const messages = [];
-
             const scanRegion = (r1, c1, r2, c2, label) => {
                 const result = SudokuEngine.checkRegion(grid, r1, c1, r2, c2);
                 result.conflicts.forEach(p => conflictMap[p.r][p.c] = true);
                 [...new Set(result.duplicateValues)].forEach(val => messages.push(`${label}有重复的数字 ${val}`));
             };
-
             for (let r = 1; r <= 9; r++) scanRegion(r, 1, r, 9, `第${r}行`);
             for (let c = 1; c <= 9; c++) scanRegion(1, c, 9, c, `第${c}列`);
             for (let b = 0; b < 9; b++) {
@@ -504,13 +494,11 @@ createApp({
                 const boxCol = (b % 3) + 1;
                 scanRegion(startR, startC, startR + 2, startC + 2, `第${boxRow}行第${boxCol}列的宫`);
             }
-
             for (let r = 0; r < 9; r++) 
                 for (let c = 0; c < 9; c++) 
                     this.board[r][c].conflict = conflictMap[r][c];
             this.conflictMessages = messages;
         },
-
         checkComplete() {
             for (let r = 0; r < 9; r++) {
                 for (let c = 0; c < 9; c++) {
@@ -523,7 +511,6 @@ createApp({
             this.selectedCol = null;
             this.hintMessage = '';
         },
-
         newGame() { this.initGame(); }
     },
     mounted() { this.initGame(); }
