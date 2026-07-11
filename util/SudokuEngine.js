@@ -1,6 +1,6 @@
 // util/SudokuEngine.js
 export class SudokuEngine {
-    // 数组随机打乱（仅用于增加每次游戏的随机性）
+    // 纯粹用来打乱挖空的位置，不影响答案的正确性
     static shuffle(arr) {
         for (let i = arr.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -8,7 +8,7 @@ export class SudokuEngine {
         }
     }
 
-    // 检查填入的数字是否合法（保留给冲突检测和提示功能使用）
+    // 严密检查某数字是否合法
     static isValid(grid, row, col, num, BOX_SIZE, SIZE) {
         for (let i = 0; i < SIZE; i++) {
             if (grid[row][i] === num || grid[i][col] === num) return false;
@@ -21,26 +21,66 @@ export class SudokuEngine {
         return true;
     }
 
-    // 【核心变革】直接生成一个完美的拉丁方阵，舍弃所有递归回溯
-    static generateSolution(BOX_SIZE, SIZE) {
-        const grid = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
-        // 生成基准行：1 ~ SIZE
-        const baseLine = Array.from({ length: SIZE }, (_, i) => i + 1);
-        // 打乱基准行，让每次生成的题目不一样
-        SudokuEngine.shuffle(baseLine);
+    // 【核心】极速 MRV 回溯（不进行随机尝试，强行按顺序填，绝对收敛）
+    static solve(grid, BOX_SIZE, SIZE) {
+        let minCandidates = SIZE + 1;
+        let targetR = -1, targetC = -1;
+        let targetPossible = [];
 
+        // 1. 全局扫描，找出当前候选数字最少的空格（MRV策略）
         for (let r = 0; r < SIZE; r++) {
-            // 每一行相对于上一行，偏移一个宫格宽度（BOX_SIZE）
-            const shift = r * BOX_SIZE;
             for (let c = 0; c < SIZE; c++) {
-                // 循环移位赋值，自动确保行、列、宫都不重复
-                grid[r][c] = baseLine[(shift + c) % SIZE];
+                if (grid[r][c] === 0) {
+                    const possible = [];
+                    for (let num = 1; num <= SIZE; num++) {
+                        if (SudokuEngine.isValid(grid, r, c, num, BOX_SIZE, SIZE)) {
+                            possible.push(num);
+                        }
+                    }
+                    if (possible.length === 0) return false; // 死胡同，立刻回溯
+                    if (possible.length < minCandidates) {
+                        minCandidates = possible.length;
+                        targetR = r;
+                        targetC = c;
+                        targetPossible = possible;
+                    }
+                }
             }
         }
+
+        if (targetR === -1) return true; // 没有空格，解答完成！
+
+        // 2. 确定性的按顺序尝试填数（禁止乱序，保证速度）
+        for (let num of targetPossible) {
+            grid[targetR][targetC] = num;
+            if (SudokuEngine.solve(grid, BOX_SIZE, SIZE)) {
+                return true;
+            }
+            grid[targetR][targetC] = 0; // 回溯
+        }
+        return false;
+    }
+
+    // 生成完美合法的完整答案（这里的生成 100% 正确）
+    static generateSolution(BOX_SIZE, SIZE) {
+        const grid = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
+        const fillBox = (r, c) => {
+            const nums = Array.from({ length: SIZE }, (_, i) => i + 1);
+            SudokuEngine.shuffle(nums); // 打乱宫格的初始填充，保证每次游戏盘面不同
+            let idx = 0;
+            for (let i = r; i < r + BOX_SIZE; i++)
+                for (let j = c; j < c + BOX_SIZE; j++)
+                    grid[i][j] = nums[idx++];
+        };
+        // 提前预填对角线宫格，极大降低递归深度
+        for (let i = 0; i < SIZE; i += BOX_SIZE) fillBox(i, i);
+        
+        // 调用绝对不会卡死的求解器
+        SudokuEngine.solve(grid, BOX_SIZE, SIZE);
         return grid;
     }
 
-    // 挖空生成谜题
+    // 随机挖空（这里不需要检验，因为来源 100% 正确）
     static createPuzzle(solution, blanks) {
         const puzzle = solution.map(row => [...row]);
         const positions = [];
@@ -55,7 +95,7 @@ export class SudokuEngine {
         return puzzle;
     }
 
-    // 获取合法候选数字（用于提示功能）
+    // 获取当前空格候选数字（给提示用）
     static getLegalCandidates(grid, row, col, BOX_SIZE, SIZE) {
         if (grid[row][col] !== 0) return [];
         const candidates = [];
@@ -67,7 +107,7 @@ export class SudokuEngine {
         return candidates;
     }
 
-    // 检查指定范围内是否有冲突（用于红色冲突高亮）
+    // 检查有没有冲突（给红字报错用）
     static checkRegion(grid, r1, c1, r2, c2) {
         const startR = Math.min(r1, r2) - 1, endR = Math.max(r1, r2) - 1;
         const startC = Math.min(c1, c2) - 1, endC = Math.max(c1, c2) - 1;
