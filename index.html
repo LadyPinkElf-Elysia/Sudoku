@@ -3,91 +3,130 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>数独 - 极速版</title>
+    <title>数独</title>
     <link rel="stylesheet" href="styles/style.css">
-    <script type="importmap">
-        {
-            "imports": {
-                "vue": "https://unpkg.com/vue@3/dist/vue.esm-browser.prod.js"
-            }
-        }
-    </script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
 </head>
 <body>
-    <div id="app">
-        <h2>🧩 数独 - {{ getSizeLabel }} ({{ currentDifficulty }}难度)</h2>
+    <div id="app" v-cloak>
         
-        <!-- 下拉菜单生成时禁用 -->
-        <div class="mode-bar">
-            <select v-model="currentBoxSize" :disabled="isGenerating">
-                <option :value="3">标准 (3x3宫格)</option>
-                <option :value="4">进阶 (4x4宫格)</option>
-                <option :value="5">专家 (5x5宫格)</option>
-            </select>
-            <select v-model="currentDifficulty" :disabled="isGenerating">
-                <option value="easy">😊 简单</option>
-                <option value="medium">🤔 中等</option>
-                <option value="hard">💀 困难</option>
-            </select>
-        </div>
-
-        <div class="board" :style="{ gridTemplateColumns: `repeat(${SIZE}, minmax(0, 1fr))` }">
-            <template v-for="(row, r) in board" :key="r">
-                <div v-for="(cell, c) in row" :key="c"
-                     class="cell"
-                     :class="{
-                         given: !cell.editable,
-                         user: cell.editable && cell.value !== 0,
-                         selected: selectedRow === r && selectedCol === c,
-                         conflict: cell.conflict,
-                         'box-right': (c + 1) % BOX_SIZE === 0 && c !== SIZE - 1,
-                         'box-bottom': (r + 1) % BOX_SIZE === 0 && r !== SIZE - 1
-                     }"
-                     @click="selectCell(r, c)">
-                    {{ cell.value || '' }}
-                </div>
-            </template>
-        </div>
-
-        <div class="num-pad-wrapper">
-            <div class="num-grid" :style="{ gridTemplateColumns: `repeat(${BOX_SIZE}, minmax(0, 1fr))` }">
-                <button v-for="n in SIZE" :key="n" class="num-btn" @click="inputNumber(n)">{{ n }}</button>
-            </div>
-            <button class="num-btn clear-btn" @click="clearSelected"></button>
+        <!-- ================= 1. 配置面板 ================= -->
+        <div v-if="!gameStarted" class="config-panel">
+            <h2>⚙️ 游戏设置</h2>
             
-            <div class="action-row">
-                <button class="action-btn" @click="undo" :disabled="stepPointer <= 0 || isGenerating" title="撤回">↩️</button>
-                <button class="action-btn" @click="redo" :disabled="!historyMap[stepPointer + 1] || isGenerating" title="重做">↪️</button>
-                <button class="action-btn" @click="giveHint" :disabled="isGenerating" title="提示">💡</button>
-            </div>
-
-            <div class="history-steps-container" v-if="stepKeys.length > 1">
-                <div v-for="step in stepKeys" :key="step"
-                     class="step-block"
-                     :class="{ active: stepPointer === step }"
-                     @click="movePointer(step)">
-                    第{{ step + 1 }}步
+            <div class="config-item">
+                <label>棋盘大小 N (3 - 9):</label>
+                <div class="input-group">
+                    <input type="number" v-model.number="configN" min="3" max="9">
+                    <span class="hint">生成 {{ configN * configN }} x {{ configN * configN }}</span>
                 </div>
             </div>
+
+            <div class="config-item">
+                <label>挖空数量 ({{ minBlanks }} ~ {{ maxBlanks }}):</label>
+                <div class="input-group">
+                    <input type="number" v-model.number="configBlanks" :min="minBlanks" :max="maxBlanks">
+                </div>
+            </div>
+
+            <div class="config-item">
+                <label>游戏模式:</label>
+                <div class="input-group">
+                    <select v-model="configMode">
+                        <option value="infinite">♾️ 无限试错模式</option>
+                        <option value="limited">⚖️ 有限犯错模式</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="config-item" v-if="configMode === 'limited'">
+                <label>允许的最大错误次数 (0 - 99):</label>
+                <div class="input-group">
+                    <input type="number" v-model.number="configErrorLimit" min="0" max="99">
+                </div>
+            </div>
+
+            <button class="btn btn-primary btn-block" @click="startGame">🚀 开始游戏</button>
         </div>
 
-        <div v-if="hintMessage" class="hint-box">{{ hintMessage }}</div>
-        <div v-if="conflictMessages.length > 0" class="conflict-box">
-            <strong>⚠️ 冲突提示：</strong>
-            <ul>
-                <li v-for="msg in conflictMessages" :key="msg">{{ msg }}</li>
-            </ul>
-        </div>
+        <!-- ================= 2. 游戏面板 ================= -->
+        <div v-if="gameStarted" class="game-area">
+            
+            <div class="status-bar">
+                <h2>🧩 {{ getSizeLabel }}</h2>
+                <div class="status-right">
+                    <!-- 修改点：错误计数只在有限模式下显示 -->
+                    <span class="error-count" v-if="configMode === 'limited'">
+                        ❌ 错误: {{ errors }} / {{ configErrorLimit }}
+                    </span>
+                    <button class="btn btn-secondary" @click="resetGame">🔄 重设</button>
+                </div>
+            </div>
 
-        <div class="bottom-row">
-            <button class="btn btn-primary" @click="newGame" :disabled="isGenerating">🔄 新游戏</button>
-        </div>
+            <div class="board" :style="{ gridTemplateColumns: `repeat(${SIZE}, minmax(0, 1fr))` }">
+                <template v-for="(row, r) in board" :key="r">
+                    <div v-for="(cell, c) in row" :key="c"
+                         class="cell"
+                         :class="{
+                             given: !cell.editable,
+                             user: cell.editable && cell.value !== 0,
+                             selected: selectedRow === r && selectedCol === c,
+                             conflict: cell.conflict,
+                             'box-right': (c + 1) % BOX_SIZE === 0 && c !== SIZE - 1,
+                             'box-bottom': (r + 1) % BOX_SIZE === 0 && r !== SIZE - 1
+                         }"
+                         @click="selectCell(r, c)">
+                        {{ cell.value || '' }}
+                    </div>
+                </template>
+            </div>
 
-        <div class="victory-overlay" v-if="gameComplete">
-            <div class="victory-dialog">
-                <h3>🎉 恭喜完成！</h3>
-                <p>你成功解开了 {{ SIZE }}x{{ SIZE }} 的数独！</p>
-                <button @click="newGame">再来一局</button>
+            <div class="num-pad-wrapper">
+                <div class="num-grid" :style="{ gridTemplateColumns: `repeat(${BOX_SIZE}, minmax(0, 1fr))` }">
+                    <button v-for="n in SIZE" :key="n" class="num-btn" @click="inputNumber(n)">{{ n }}</button>
+                </div>
+                <button class="num-btn clear-btn" @click="clearSelected"></button>
+                
+                <div class="action-row">
+                    <button class="action-btn" @click="undo" :disabled="stepPointer <= 0 || isGenerating" title="撤回">↩️</button>
+                    <button class="action-btn" @click="redo" :disabled="!historyMap[stepPointer + 1] || isGenerating" title="重做">↪️</button>
+                    <button class="action-btn" @click="giveHint" :disabled="isGenerating" title="提示">💡</button>
+                </div>
+
+                <div class="history-steps-container" v-if="stepKeys.length > 1">
+                    <div v-for="step in stepKeys" :key="step"
+                         class="step-block"
+                         :class="{ active: stepPointer === step }"
+                         @click="movePointer(step)">
+                        第{{ step + 1 }}步
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="hintMessage" class="hint-box">{{ hintMessage }}</div>
+            <div v-if="conflictMessages.length > 0" class="conflict-box">
+                <strong>⚠️ 冲突提示：</strong>
+                <ul>
+                    <li v-for="msg in conflictMessages" :key="msg">{{ msg }}</li>
+                </ul>
+            </div>
+            
+            <!-- 胜利弹窗 -->
+            <div class="victory-overlay" v-if="gameComplete">
+                <div class="victory-dialog">
+                    <h3>🎉 恭喜完成！</h3>
+                    <p>你成功解开了 {{ SIZE }}x{{ SIZE }} 的数独！</p>
+                    <button class="btn btn-primary" @click="resetGame">再来一局</button>
+                </div>
+            </div>
+
+            <!-- 失败弹窗（错误次数过多） -->
+            <div class="victory-overlay" v-if="gameOver && !gameComplete">
+                <div class="victory-dialog" style="border: 2px solid #b91c1c;">
+                    <h3 style="color: #b91c1c;">💀 游戏失败</h3>
+                    <p>错误次数已超过设定的上限 ({{ configErrorLimit }}次)。</p>
+                    <button class="btn btn-primary" style="background: #b91c1c;" @click="resetGame">重新开始</button>
+                </div>
             </div>
         </div>
     </div>
