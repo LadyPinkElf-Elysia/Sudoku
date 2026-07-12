@@ -52,10 +52,17 @@
         <!-- ================= 2. 游戏面板 ================= -->
         <div v-if="gameStarted" class="game-area">
             
+            <!-- 【核心改动】调整状态栏顺序：左标题，中缩放，右错误计数+重设 -->
             <div class="status-bar">
                 <h2>🧩 {{ getSizeLabel }}</h2>
+
+                <div class="zoom-controls">
+                    <button class="zoom-btn" @click="zoomOut" :disabled="zoom <= 0.5">−</button>
+                    <span class="zoom-text">{{ Math.round(zoom * 100) || 100 }}%</span>
+                    <button class="zoom-btn" @click="zoomIn" :disabled="zoom >= 3">+</button>
+                </div>
+
                 <div class="status-right">
-                    <!-- 修改点：错误计数只在有限模式下显示 -->
                     <span class="error-count" v-if="configMode === 'limited'">
                         ❌ 错误: {{ errors }} / {{ configErrorLimit }}
                     </span>
@@ -63,22 +70,31 @@
                 </div>
             </div>
 
-            <div class="board" :style="{ gridTemplateColumns: `repeat(${SIZE}, minmax(0, 1fr))` }">
-                <template v-for="(row, r) in board" :key="r">
-                    <div v-for="(cell, c) in row" :key="c"
-                         class="cell"
-                         :class="{
-                             given: !cell.editable,
-                             user: cell.editable && cell.value !== 0,
-                             selected: selectedRow === r && selectedCol === c,
-                             conflict: cell.conflict,
-                             'box-right': (c + 1) % BOX_SIZE === 0 && c !== SIZE - 1,
-                             'box-bottom': (r + 1) % BOX_SIZE === 0 && r !== SIZE - 1
-                         }"
-                         @click="selectCell(r, c)">
-                        {{ cell.value || '' }}
+            <div class="board-scroll-container">
+                <div class="board-wrapper" :style="{ 
+                    width: (100 * zoom) + '%', 
+                    height: (100 * zoom) + '%',
+                    transform: 'scale(' + zoom + ')', 
+                    transformOrigin: '0 0' 
+                }">
+                    <div class="board" :style="{ gridTemplateColumns: `repeat(${SIZE}, minmax(0, 1fr))` }">
+                        <template v-for="(row, r) in board" :key="r">
+                            <div v-for="(cell, c) in row" :key="c"
+                                 class="cell"
+                                 :class="{
+                                     given: !cell.editable,
+                                     user: cell.editable && cell.value !== 0,
+                                     selected: selectedRow === r && selectedCol === c,
+                                     conflict: cell.conflict,
+                                     'box-right': (c + 1) % BOX_SIZE === 0 && c !== SIZE - 1,
+                                     'box-bottom': (r + 1) % BOX_SIZE === 0 && r !== SIZE - 1
+                                 }"
+                                 @click="selectCell(r, c)">
+                                {{ cell.value || '' }}
+                            </div>
+                        </template>
                     </div>
-                </template>
+                </div>
             </div>
 
             <div class="num-pad-wrapper">
@@ -120,7 +136,7 @@
                 </div>
             </div>
 
-            <!-- 失败弹窗（错误次数过多） -->
+            <!-- 失败弹窗 -->
             <div class="victory-overlay" v-if="gameOver && !gameComplete">
                 <div class="victory-dialog" style="border: 2px solid #b91c1c;">
                     <h3 style="color: #b91c1c;">💀 游戏失败</h3>

@@ -28,7 +28,10 @@ const app = createApp({
             historyMap: {},
             stepPointer: -1,
             hintMessage: '',
-            isGenerating: false
+            isGenerating: false,
+
+            // --- 缩放控制变量 (请务必确保这行存在) ---
+            zoom: 1.0
         };
     },
     computed: {
@@ -69,6 +72,9 @@ const app = createApp({
             this.gameOver = false;
             this.gameComplete = false;
             this.gameStarted = true;
+            
+            // 【关键修复】开始新游戏时强制重置缩放倍数，防止 NaN
+            this.zoom = 1.0; 
 
             this.BOX_SIZE = this.configN;
             this.SIZE = this.configN * this.configN;
@@ -154,10 +160,8 @@ const app = createApp({
             updateFn(cell);
             this.updateConflicts();
 
-            // === 核心修改：仅在有限模式下增加错误计数 ===
             if (cell.conflict && this.configMode === 'limited') {
                 this.errors++;
-                // 若为有限模式且已超过上限
                 if (this.errors > this.configErrorLimit) {
                     this.gameOver = true;
                     this.selectedRow = null;
@@ -179,27 +183,12 @@ const app = createApp({
             });
         },
 
-        updateConflicts() {
-            const grid = this.getGridSnapshot();
-            const conflictMap = Array.from({ length: this.SIZE }, () => Array(this.SIZE).fill(false));
-            const messages = [];
-            const regions = SudokuGridHelper.generateRegions(this.BOX_SIZE, this.SIZE);
-            for (let region of regions) {
-                const result = SudokuEngine.checkRegion(grid, region.r1, region.c1, region.r2, region.c2);
-                result.conflicts.forEach(p => conflictMap[p.r][p.c] = true);
-                [...new Set(result.duplicateValues)].forEach(val => {
-                    messages.push(`${region.label}有重复的数字 ${val}`);
-                });
-            }
-            SudokuGridHelper.syncConflicts(this.board, conflictMap);
-            this.conflictMessages = messages;
+        // === 缩放控制方法 (必须包含这两个) ===
+        zoomIn() {
+            if (this.zoom < 3.0) this.zoom += 0.1;
         },
-        checkComplete() {
-            if (SudokuGridHelper.checkComplete(this.board, this.SIZE)) {
-                this.gameComplete = true;
-                this.selectedRow = null; this.selectedCol = null;
-                this.hintMessage = '';
-            }
+        zoomOut() {
+            if (this.zoom > 0.5) this.zoom -= 0.1;
         }
     },
     mounted() { 
