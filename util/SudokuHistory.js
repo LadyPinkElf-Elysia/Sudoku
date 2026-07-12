@@ -1,4 +1,3 @@
-// util/SudokuHistory.js
 export class SudokuHistory {
     static push(historyMap, stepPointer, gridSnapshot) {
         stepPointer++;
@@ -10,7 +9,6 @@ export class SudokuHistory {
         }
         return { newStepPointer: stepPointer, newHistoryMap: newMap };
     }
-
     static goTo(historyMap, targetStep) {
         if (!historyMap[targetStep]) return null;
         return { targetStep, targetGrid: historyMap[targetStep] };

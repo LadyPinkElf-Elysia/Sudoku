@@ -1,199 +1,172 @@
 // main.js
-const { createApp } = Vue;
+const { createApp, markRaw } = Vue;
 import { SudokuEngine } from './util/SudokuEngine.js';
-import { SudokuHistory } from './util/SudokuHistory.js';
 import { SudokuGridHelper } from './util/SudokuGridHelper.js';
+import { SudokuRenderer } from './util/SudokuRenderer.js';
+import { SudokuGameHelper } from './util/SudokuGameHelper.js';
 
 const app = createApp({
     data() {
         return {
-            // --- 游戏配置数据 ---
-            configN: 3,
-            configBlanks: null,
-            configMode: 'infinite',
-            configErrorLimit: 0,
-            
-            // --- 当前游戏状态 ---
-            gameStarted: false,
-            errors: 0,
-            gameOver: false,
-
-            BOX_SIZE: 0,
-            SIZE: 0,
-            board: [],
-            selectedRow: null,
-            selectedCol: null,
-            gameComplete: false,
-            conflictMessages: [],
-            historyMap: {},
-            stepPointer: -1,
-            hintMessage: '',
-            isGenerating: false,
-
-            // --- 缩放控制变量 (请务必确保这行存在) ---
-            zoom: 1.0
+            // 【核心改动】所有配置及限制全在 config 里集中管理
+            config: {
+                N: 3,
+                NMin: 3,     // 棋盘大小下限
+                NMax: 6,     // 棋盘大小上限
+                blanks: null,
+                mode: 'infinite',
+                errorLimit: 0,
+                errorLimitMin: 0, // 最大错误次数下限
+                errorLimitMax: 99 // 最大错误次数上限
+            },
+            game: {
+                started: false, errors: 0, over: false, complete: false,
+                board: [], selectedRow: null, selectedCol: null,
+                conflictMessages: [], hintMessage: '', isGenerating: false
+            },
+            historyMap: {}, stepPointer: -1, zoom: 1.0,
+            BOX_SIZE: 0, SIZE: 0
         };
     },
     computed: {
         getSizeLabel() {
             const size = this.SIZE;
-            return `${size}×${size}`;
+            return size > 0 ? `${size}×${size}` : '配置中';
         },
         stepKeys() {
             return Object.keys(this.historyMap).map(Number).sort((a, b) => a - b);
         },
         minBlanks() {
-            if (!this.configN) return 0;
-            const total = this.configN * this.configN * this.configN * this.configN;
+            if (!this.config.N) return 0;
+            const total = this.config.N * this.config.N * this.config.N * this.config.N;
             return Math.ceil(total * 0.10);
         },
         maxBlanks() {
-            if (!this.configN) return 0;
-            const total = this.configN * this.configN * this.configN * this.configN;
+            if (!this.config.N) return 0;
+            const total = this.config.N * this.config.N * this.config.N * this.config.N;
             return Math.floor(total * 0.40);
         }
     },
     watch: {
-        configN() {
-            if (this.configBlanks < this.minBlanks) this.configBlanks = this.minBlanks;
-            if (this.configBlanks > this.maxBlanks) this.configBlanks = this.maxBlanks;
+        'config.N'() {
+            if (this.config.blanks < this.minBlanks) this.config.blanks = this.minBlanks;
+            if (this.config.blanks > this.maxBlanks) this.config.blanks = this.maxBlanks;
         }
     },
     methods: {
-        // === 配置面板触发 ===
+        renderCanvas() {
+            const canvas = document.getElementById('sudokuCanvas');
+            if (!canvas) return;
+            SudokuRenderer.draw(canvas, this.game.board, this.SIZE, this.BOX_SIZE, this.game.selectedRow, this.game.selectedCol);
+        },
+        onCanvasClick(e) {
+            const canvas = document.getElementById('sudokuCanvas');
+            if (!canvas || this.game.isGenerating) return;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width, scaleY = canvas.height / rect.height;
+            const x = (e.clientX - rect.left) * scaleX, y = (e.clientY - rect.top) * scaleY;
+            const row = Math.floor(y / (canvas.height / this.SIZE));
+            const col = Math.floor(x / (canvas.width / this.SIZE));
+            if (row >= 0 && row < this.SIZE && col >= 0 && col < this.SIZE) this.selectCell(row, col);
+        },
         startGame() {
-            const totalCells = this.configN * this.configN * this.configN * this.configN;
-            let blanks = this.configBlanks;
+            let blanks = this.config.blanks;
             if (blanks < this.minBlanks) blanks = this.minBlanks;
             if (blanks > this.maxBlanks) blanks = this.maxBlanks;
-            this.configBlanks = blanks;
-
-            this.errors = 0;
-            this.gameOver = false;
-            this.gameComplete = false;
-            this.gameStarted = true;
-            
-            // 【关键修复】开始新游戏时强制重置缩放倍数，防止 NaN
-            this.zoom = 1.0; 
-
-            this.BOX_SIZE = this.configN;
-            this.SIZE = this.configN * this.configN;
-            this.isGenerating = true;
-
+            this.config.blanks = blanks;
+            this.game.errors = 0; this.game.over = false; this.game.complete = false;
+            this.game.started = true; this.game.isGenerating = true;
+            this.BOX_SIZE = this.config.N; this.SIZE = this.config.N * this.config.N;
             const solution = SudokuEngine.generateSolution(this.BOX_SIZE, this.SIZE);
-            const puzzle = SudokuEngine.createPuzzle(solution, this.configBlanks);
-            
-            this.board = puzzle.map(row => row.map(val => ({ value: val, editable: val === 0, conflict: false })));
-            this.selectedRow = null; this.selectedCol = null;
-            this.conflictMessages = [];
+            const puzzle = SudokuEngine.createPuzzle(solution, this.config.blanks);
+            this.game.board = markRaw(puzzle.map(row => row.map(val => ({ value: val, editable: val === 0, conflict: false }))));
+            this.game.selectedRow = null; this.game.selectedCol = null;
+            this.game.conflictMessages = [];
             this.historyMap = {}; this.stepPointer = -1;
-            this.hintMessage = '';
-            
-            this.isGenerating = false;
+            this.game.hintMessage = ''; this.zoom = 1.0;
+            this.game.isGenerating = false;
             this.saveState();
+            this.$nextTick(() => {
+                const canvas = document.getElementById('sudokuCanvas');
+                if(canvas) {
+                    canvas.removeEventListener('click', this.onCanvasClick);
+                    canvas.addEventListener('click', this.onCanvasClick);
+                }
+                this.renderCanvas();
+            });
         },
-        
-        // === 游戏逻辑 ===
         resetGame() {
-            this.gameStarted = false;
-            this.hintMessage = '';
-        },
-        getGridSnapshot() {
-            return SudokuGridHelper.getGridSnapshot(this.board);
-        },
-        applyGrid(gridData) {
-            SudokuGridHelper.applyGrid(this.board, gridData);
-            SudokuGridHelper.clearConflicts(this.board);
-            this.updateConflicts();
-            this.checkComplete();
-            this.selectedRow = null; this.selectedCol = null;
-            this.hintMessage = '';
+            this.game.started = false; this.game.hintMessage = '';
+            const canvas = document.getElementById('sudokuCanvas');
+            if (canvas) canvas.removeEventListener('click', this.onCanvasClick);
         },
         saveState() {
-            const result = SudokuHistory.push(this.historyMap, this.stepPointer, this.getGridSnapshot());
+            const result = SudokuGameHelper.saveState(this.historyMap, this.stepPointer, this.game.board);
             this.historyMap = result.newHistoryMap;
             this.stepPointer = result.newStepPointer;
-            this.hintMessage = '';
+            this.game.hintMessage = '';
         },
         movePointer(targetStep) {
-            const result = SudokuHistory.goTo(this.historyMap, targetStep);
-            if (result) {
-                this.stepPointer = result.targetStep;
-                this.applyGrid(result.targetGrid);
+            if (this.historyMap[targetStep]) {
+                this.stepPointer = targetStep;
+                const result = SudokuGameHelper.applyHistory(this.game.board, this.historyMap[targetStep], this.SIZE, this.BOX_SIZE);
+                this.game.conflictMessages = result.messages;
+                this.game.selectedRow = null; this.game.selectedCol = null;
+                this.game.hintMessage = '';
+                this.renderCanvas();
             }
         },
         undo() { this.movePointer(this.stepPointer - 1); },
         redo() { this.movePointer(this.stepPointer + 1); },
         giveHint() {
-            if (this.isGenerating) return;
-            if (this.selectedRow === null || this.selectedCol === null) {
-                this.hintMessage = '💡 请先在棋盘上点击选中一个空格';
+            if (this.game.isGenerating) return;
+            if (this.game.selectedRow === null || this.game.selectedCol === null) {
+                this.game.hintMessage = '💡 请先在棋盘上点击选中一个空格';
                 return;
             }
-            const row = this.selectedRow, col = this.selectedCol;
-            const cell = this.board[row][col];
-            if (!cell.editable) {
-                this.hintMessage = '💡 此格是初始题目，不可编辑';
-                return;
-            }
-            if (cell.value !== 0) {
-                this.hintMessage = '💡 此格已填入数字';
-                return;
-            }
-            const candidates = SudokuEngine.getLegalCandidates(
-                this.getGridSnapshot(), row, col, this.BOX_SIZE, this.SIZE
-            );
-            if (candidates.length === 0) {
-                this.hintMessage = '💡 此格当前没有任何合法数字可以填入，请检查盘面是否有冲突';
-            } else {
-                this.hintMessage = `💡 此格可以填：${candidates.join('、')}`;
-            }
+            const row = this.game.selectedRow, col = this.game.selectedCol;
+            const cell = this.game.board[row][col];
+            if (!cell.editable) { this.game.hintMessage = '💡 此格是初始题目，不可编辑'; return; }
+            if (cell.value !== 0) { this.game.hintMessage = '💡 此格已填入数字'; return; }
+            const result = SudokuGameHelper.getHint(this.game.board, row, col, this.BOX_SIZE, this.SIZE);
+            this.game.hintMessage = result.candidates.length === 0 ? '💡 此格当前没有任何合法数字可以填入，请检查盘面是否有冲突' : `💡 此格可以填：${result.candidates.join('、')}`;
         },
-        selectCell(r, c) { this.selectedRow = r; this.selectedCol = c; this.hintMessage = ''; },
-        
+        selectCell(r, c) {
+            this.game.selectedRow = r; this.game.selectedCol = c;
+            this.game.hintMessage = '';
+            this.renderCanvas();
+        },
         _operateCell(updateFn) {
-            if (this.gameComplete || this.gameOver || this.selectedRow === null || this.isGenerating) return;
-            const cell = this.board[this.selectedRow][this.selectedCol];
+            if (this.game.complete || this.game.over || this.game.selectedRow === null || this.game.isGenerating) return;
+            const row = this.game.selectedRow, col = this.game.selectedCol;
+            const cell = this.game.board[row][col];
             if (!cell.editable) return;
-            
             this.saveState();
             updateFn(cell);
-            this.updateConflicts();
-
-            if (cell.conflict && this.configMode === 'limited') {
-                this.errors++;
-                if (this.errors > this.configErrorLimit) {
-                    this.gameOver = true;
-                    this.selectedRow = null;
-                    this.selectedCol = null;
-                    return;
+            this.game.conflictMessages = SudokuGridHelper.updateConflictsLocal(this.game.board, row, col, this.BOX_SIZE, this.SIZE);
+            if (cell.conflict && this.config.mode === 'limited') {
+                this.game.errors++;
+                if (this.game.errors > this.config.errorLimit) {
+                    this.game.over = true;
+                    this.game.selectedRow = null;
+                    this.game.selectedCol = null;
                 }
             }
             this.checkComplete();
+            this.renderCanvas();
         },
-
-        inputNumber(num) {
-            this._operateCell(cell => {
-                cell.value = (cell.value === num) ? 0 : num;
-            });
+        inputNumber(num) { this._operateCell(cell => { cell.value = (cell.value === num) ? 0 : num; }); },
+        clearSelected() { this._operateCell(cell => { cell.value = 0; }); },
+        checkComplete() {
+            if (SudokuGridHelper.checkComplete(this.game.board, this.SIZE)) {
+                this.game.complete = true;
+                this.game.selectedRow = null; this.game.selectedCol = null;
+                this.game.hintMessage = '';
+            }
         },
-        clearSelected() {
-            this._operateCell(cell => {
-                cell.value = 0;
-            });
-        },
-
-        // === 缩放控制方法 (必须包含这两个) ===
-        zoomIn() {
-            if (this.zoom < 3.0) this.zoom += 0.1;
-        },
-        zoomOut() {
-            if (this.zoom > 0.5) this.zoom -= 0.1;
-        }
+        zoomIn() { if (this.zoom < 3.0) this.zoom += 0.1; this.renderCanvas(); },
+        zoomOut() { if (this.zoom > 0.5) this.zoom -= 0.1; this.renderCanvas(); }
     },
-    mounted() { 
-        this.configBlanks = this.minBlanks; 
-    }
+    mounted() { this.config.blanks = this.minBlanks; }
 });
-
 app.mount('#app');

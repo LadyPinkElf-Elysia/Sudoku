@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>数独</title>
     <link rel="stylesheet" href="styles/style.css">
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
@@ -10,90 +10,60 @@
 <body>
     <div id="app" v-cloak>
         
-        <!-- ================= 1. 配置面板 ================= -->
-        <div v-if="!gameStarted" class="config-panel">
+        <div v-if="!game.started" class="config-panel">
             <h2>⚙️ 游戏设置</h2>
-            
             <div class="config-item">
-                <label>棋盘大小 N (3 - 9):</label>
+                <label>棋盘大小 N ({{ config.NMin }} - {{ config.NMax }}):</label>
                 <div class="input-group">
-                    <input type="number" v-model.number="configN" min="3" max="9">
-                    <span class="hint">生成 {{ configN * configN }} x {{ configN * configN }}</span>
+                    <!-- 【核心改动】使用 config 里的对象引用 -->
+                    <input type="number" v-model.number="config.N" :min="config.NMin" :max="config.NMax">
+                    <span class="hint">生成 {{ config.N * config.N }} x {{ config.N * config.N }}</span>
                 </div>
             </div>
-
             <div class="config-item">
                 <label>挖空数量 ({{ minBlanks }} ~ {{ maxBlanks }}):</label>
                 <div class="input-group">
-                    <input type="number" v-model.number="configBlanks" :min="minBlanks" :max="maxBlanks">
+                    <input type="number" v-model.number="config.blanks" :min="minBlanks" :max="maxBlanks">
                 </div>
             </div>
-
             <div class="config-item">
                 <label>游戏模式:</label>
                 <div class="input-group">
-                    <select v-model="configMode">
+                    <select v-model="config.mode">
                         <option value="infinite">♾️ 无限试错模式</option>
                         <option value="limited">⚖️ 有限犯错模式</option>
                     </select>
                 </div>
             </div>
-
-            <div class="config-item" v-if="configMode === 'limited'">
-                <label>允许的最大错误次数 (0 - 99):</label>
+            <div class="config-item" v-if="config.mode === 'limited'">
+                <label>允许的最大错误次数 ({{ config.errorLimitMin }} - {{ config.errorLimitMax }}):</label>
                 <div class="input-group">
-                    <input type="number" v-model.number="configErrorLimit" min="0" max="99">
+                    <!-- 【核心改动】使用 config 里的对象引用 -->
+                    <input type="number" v-model.number="config.errorLimit" :min="config.errorLimitMin" :max="config.errorLimitMax">
                 </div>
             </div>
-
             <button class="btn btn-primary btn-block" @click="startGame">🚀 开始游戏</button>
         </div>
 
-        <!-- ================= 2. 游戏面板 ================= -->
-        <div v-if="gameStarted" class="game-area">
-            
-            <!-- 【核心改动】调整状态栏顺序：左标题，中缩放，右错误计数+重设 -->
+        <div v-if="game.started" class="game-area">
             <div class="status-bar">
                 <h2>🧩 {{ getSizeLabel }}</h2>
-
                 <div class="zoom-controls">
                     <button class="zoom-btn" @click="zoomOut" :disabled="zoom <= 0.5">−</button>
                     <span class="zoom-text">{{ Math.round(zoom * 100) || 100 }}%</span>
                     <button class="zoom-btn" @click="zoomIn" :disabled="zoom >= 3">+</button>
                 </div>
-
                 <div class="status-right">
-                    <span class="error-count" v-if="configMode === 'limited'">
-                        ❌ 错误: {{ errors }} / {{ configErrorLimit }}
+                    <span class="error-count" v-if="config.mode === 'limited'">
+                        ❌ 错误: {{ game.errors }} / {{ config.errorLimit }}
                     </span>
                     <button class="btn btn-secondary" @click="resetGame">🔄 重设</button>
                 </div>
             </div>
 
             <div class="board-scroll-container">
-                <div class="board-wrapper" :style="{ 
-                    width: (100 * zoom) + '%', 
-                    height: (100 * zoom) + '%',
-                    transform: 'scale(' + zoom + ')', 
-                    transformOrigin: '0 0' 
-                }">
-                    <div class="board" :style="{ gridTemplateColumns: `repeat(${SIZE}, minmax(0, 1fr))` }">
-                        <template v-for="(row, r) in board" :key="r">
-                            <div v-for="(cell, c) in row" :key="c"
-                                 class="cell"
-                                 :class="{
-                                     given: !cell.editable,
-                                     user: cell.editable && cell.value !== 0,
-                                     selected: selectedRow === r && selectedCol === c,
-                                     conflict: cell.conflict,
-                                     'box-right': (c + 1) % BOX_SIZE === 0 && c !== SIZE - 1,
-                                     'box-bottom': (r + 1) % BOX_SIZE === 0 && r !== SIZE - 1
-                                 }"
-                                 @click="selectCell(r, c)">
-                                {{ cell.value || '' }}
-                            </div>
-                        </template>
-                    </div>
+                <div class="board-wrapper" :style="{ width: (100 * zoom) + '%', height: (100 * zoom) + '%', transform: 'scale(' + zoom + ')', transformOrigin: '0 0' }">
+                    <canvas id="sudokuCanvas" class="board-canvas"></canvas>
                 </div>
             </div>
 
@@ -104,31 +74,25 @@
                 <button class="num-btn clear-btn" @click="clearSelected"></button>
                 
                 <div class="action-row">
-                    <button class="action-btn" @click="undo" :disabled="stepPointer <= 0 || isGenerating" title="撤回">↩️</button>
-                    <button class="action-btn" @click="redo" :disabled="!historyMap[stepPointer + 1] || isGenerating" title="重做">↪️</button>
-                    <button class="action-btn" @click="giveHint" :disabled="isGenerating" title="提示">💡</button>
+                    <button class="action-btn" @click="undo" :disabled="stepPointer <= 0 || game.isGenerating" title="撤回">↩️</button>
+                    <button class="action-btn" @click="redo" :disabled="!historyMap[stepPointer + 1] || game.isGenerating" title="重做">↪️</button>
+                    <button class="action-btn" @click="giveHint" :disabled="game.isGenerating" title="提示">💡</button>
                 </div>
 
                 <div class="history-steps-container" v-if="stepKeys.length > 1">
-                    <div v-for="step in stepKeys" :key="step"
-                         class="step-block"
-                         :class="{ active: stepPointer === step }"
-                         @click="movePointer(step)">
-                        第{{ step + 1 }}步
-                    </div>
+                    <div v-for="step in stepKeys" :key="step" class="step-block" :class="{ active: stepPointer === step }" @click="movePointer(step)">第{{ step + 1 }}步</div>
                 </div>
             </div>
 
-            <div v-if="hintMessage" class="hint-box">{{ hintMessage }}</div>
-            <div v-if="conflictMessages.length > 0" class="conflict-box">
+            <div v-if="game.hintMessage" class="hint-box">{{ game.hintMessage }}</div>
+            <div v-if="game.conflictMessages.length > 0" class="conflict-box">
                 <strong>⚠️ 冲突提示：</strong>
                 <ul>
-                    <li v-for="msg in conflictMessages" :key="msg">{{ msg }}</li>
+                    <li v-for="msg in game.conflictMessages" :key="msg">{{ msg }}</li>
                 </ul>
             </div>
             
-            <!-- 胜利弹窗 -->
-            <div class="victory-overlay" v-if="gameComplete">
+            <div class="victory-overlay" v-if="game.complete">
                 <div class="victory-dialog">
                     <h3>🎉 恭喜完成！</h3>
                     <p>你成功解开了 {{ SIZE }}x{{ SIZE }} 的数独！</p>
@@ -136,17 +100,15 @@
                 </div>
             </div>
 
-            <!-- 失败弹窗 -->
-            <div class="victory-overlay" v-if="gameOver && !gameComplete">
+            <div class="victory-overlay" v-if="game.over && !game.complete">
                 <div class="victory-dialog" style="border: 2px solid #b91c1c;">
                     <h3 style="color: #b91c1c;">💀 游戏失败</h3>
-                    <p>错误次数已超过设定的上限 ({{ configErrorLimit }}次)。</p>
+                    <p>错误次数已超过设定的上限 ({{ config.errorLimit }}次)。</p>
                     <button class="btn btn-primary" style="background: #b91c1c;" @click="resetGame">重新开始</button>
                 </div>
             </div>
         </div>
     </div>
-
     <script type="module" src="main.js"></script>
 </body>
 </html>
