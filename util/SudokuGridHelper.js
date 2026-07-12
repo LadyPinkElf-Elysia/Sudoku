@@ -1,21 +1,15 @@
 export class SudokuGridHelper {
-    static getGridSnapshot(board) {
-        return board.map(row => row.map(cell => cell.value));
-    }
+    static getGridSnapshot(board) { return board.map(row => row.map(cell => cell.value)); }
     static applyGrid(board, gridData) {
         for (let r = 0; r < board.length; r++) {
             for (let c = 0; c < board.length; c++) {
-                if (board[r][c].value !== gridData[r][c]) {
-                    board[r][c].value = gridData[r][c];
-                }
+                if (board[r][c].value !== gridData[r][c]) board[r][c].value = gridData[r][c];
             }
         }
     }
     static clearConflicts(board) {
         for (let r = 0; r < board.length; r++) {
-            for (let c = 0; c < board.length; c++) {
-                board[r][c].conflict = false;
-            }
+            for (let c = 0; c < board.length; c++) board[r][c].conflict = false;
         }
     }
     static generateRegions(BOX_SIZE, SIZE) {
@@ -25,72 +19,72 @@ export class SudokuGridHelper {
         for (let b = 0; b < SIZE; b++) {
             const startR = Math.floor(b / BOX_SIZE) * BOX_SIZE + 1;
             const startC = (b % BOX_SIZE) * BOX_SIZE + 1;
-            const boxRow = Math.floor(b / BOX_SIZE) + 1;
-            const boxCol = (b % BOX_SIZE) + 1;
+            const boxRow = Math.floor(b / BOX_SIZE) + 1, boxCol = (b % BOX_SIZE) + 1;
             regions.push({ r1: startR, c1: startC, r2: startR + BOX_SIZE - 1, c2: startC + BOX_SIZE - 1, label: `第${boxRow}行第${boxCol}列的宫` });
         }
         return regions;
     }
-    static extractConflicts(vals, label) {
+    static checkRow(grid, row, SIZE, label) {
+        const rowVals = [], posMap = {};
+        for (let c = 0; c < SIZE; c++) {
+            const val = grid[row][c];
+            if (val === 0) continue;
+            rowVals.push(val);
+            if (!posMap[val]) posMap[val] = [];
+            posMap[val].push({ r: row, c });
+        }
+        if (new Set(rowVals).size < rowVals.length) return this.extractDuplicates(posMap, label);
+        return { positions: [], messages: [] };
+    }
+    static checkCol(grid, col, SIZE, label) {
+        const colVals = [], posMap = {};
+        for (let r = 0; r < SIZE; r++) {
+            const val = grid[r][col];
+            if (val === 0) continue;
+            colVals.push(val);
+            if (!posMap[val]) posMap[val] = [];
+            posMap[val].push({ r, c: col });
+        }
+        if (new Set(colVals).size < colVals.length) return this.extractDuplicates(posMap, label);
+        return { positions: [], messages: [] };
+    }
+    static checkBox(grid, boxStartR, boxStartC, BOX_SIZE, SIZE, label) {
+        const boxVals = [], posMap = {};
+        for (let r = boxStartR; r < boxStartR + BOX_SIZE; r++) {
+            for (let c = boxStartC; c < boxStartC + BOX_SIZE; c++) {
+                const val = grid[r][c];
+                if (val === 0) continue;
+                boxVals.push(val);
+                if (!posMap[val]) posMap[val] = [];
+                posMap[val].push({ r, c });
+            }
+        }
+        if (new Set(boxVals).size < boxVals.length) return this.extractDuplicates(posMap, label);
+        return { positions: [], messages: [] };
+    }
+    static extractDuplicates(posMap, label) {
         const positions = [], messages = [];
-        for (let val in vals) {
-            if (vals[val].length > 1) {
-                vals[val].forEach(p => positions.push(p));
+        for (let val in posMap) {
+            if (posMap[val].length > 1) {
+                positions.push(...posMap[val]);
                 messages.push(`${label}有重复的数字 ${Number(val)}`);
             }
         }
         return { positions, messages };
     }
-    static checkRow(grid, row, SIZE, label) {
-        const vals = {};
-        for (let c = 0; c < SIZE; c++) {
-            const val = grid[row][c];
-            if (val === 0) continue;
-            if (!vals[val]) vals[val] = [];
-            vals[val].push({ r: row, c });
-        }
-        return this.extractConflicts(vals, label);
-    }
-    static checkCol(grid, col, SIZE, label) {
-        const vals = {};
-        for (let r = 0; r < SIZE; r++) {
-            const val = grid[r][col];
-            if (val === 0) continue;
-            if (!vals[val]) vals[val] = [];
-            vals[val].push({ r, c: col });
-        }
-        return this.extractConflicts(vals, label);
-    }
-    static checkBox(grid, boxStartR, boxStartC, BOX_SIZE, SIZE, label) {
-        const vals = {};
-        for (let r = boxStartR; r < boxStartR + BOX_SIZE; r++) {
-            for (let c = boxStartC; c < boxStartC + BOX_SIZE; c++) {
-                const val = grid[r][c];
-                if (val === 0) continue;
-                if (!vals[val]) vals[val] = [];
-                vals[val].push({ r, c });
-            }
-        }
-        return this.extractConflicts(vals, label);
-    }
     static syncConflicts(board, conflictMap) {
         for (let r = 0; r < board.length; r++) {
-            for (let c = 0; c < board.length; c++) {
-                board[r][c].conflict = conflictMap[r][c];
-            }
+            for (let c = 0; c < board.length; c++) board[r][c].conflict = conflictMap[r][c];
         }
     }
     static updateConflictsLocal(board, row, col, BOX_SIZE, SIZE) {
-        const boxStartR = Math.floor(row / BOX_SIZE) * BOX_SIZE;
-        const boxStartC = Math.floor(col / BOX_SIZE) * BOX_SIZE;
+        const boxStartR = Math.floor(row / BOX_SIZE) * BOX_SIZE, boxStartC = Math.floor(col / BOX_SIZE) * BOX_SIZE;
         const grid = this.getGridSnapshot(board);
         const clearSet = new Set();
         for (let c = 0; c < SIZE; c++) clearSet.add(`${row},${c}`);
         for (let r = 0; r < SIZE; r++) clearSet.add(`${r},${col}`);
         for (let r = boxStartR; r < boxStartR + BOX_SIZE; r++) {
-            for (let c = boxStartC; c < boxStartC + BOX_SIZE; c++) {
-                clearSet.add(`${r},${c}`);
-            }
+            for (let c = boxStartC; c < boxStartC + BOX_SIZE; c++) clearSet.add(`${r},${c}`);
         }
         clearSet.forEach(key => {
             const [r, c] = key.split(',').map(Number);

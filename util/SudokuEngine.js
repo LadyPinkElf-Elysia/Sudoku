@@ -1,4 +1,3 @@
-// util/SudokuEngine.js
 export class SudokuEngine {
     static shuffle(arr) {
         for (let i = arr.length - 1; i > 0; i--) {
@@ -8,7 +7,6 @@ export class SudokuEngine {
             arr[j] = temp;
         }
     }
-
     static isValid(grid, row, col, num, BOX_SIZE, SIZE) {
         for (let i = 0; i < SIZE; i++) {
             if (grid[row][i] === num || grid[i][col] === num) return false;
@@ -20,65 +18,41 @@ export class SudokuEngine {
                 if (grid[i][j] === num) return false;
         return true;
     }
-
-    // MRV 回溯核心，不强求唯一解，填满即停
     static solve(grid, BOX_SIZE, SIZE) {
-        let minCandidates = SIZE + 1;
-        let targetR = -1, targetC = -1;
-        let targetPossible = [];
-
+        let minCandidates = SIZE + 1, targetR = -1, targetC = -1, targetPossible = [];
         for (let r = 0; r < SIZE; r++) {
             for (let c = 0; c < SIZE; c++) {
                 if (grid[r][c] === 0) {
                     const possible = [];
                     for (let num = 1; num <= SIZE; num++) {
-                        if (SudokuEngine.isValid(grid, r, c, num, BOX_SIZE, SIZE)) {
-                            possible.push(num);
-                        }
+                        if (SudokuEngine.isValid(grid, r, c, num, BOX_SIZE, SIZE)) possible.push(num);
                     }
                     if (possible.length === 0) return false;
-                    if (possible.length < minCandidates) {
-                        minCandidates = possible.length;
-                        targetR = r; targetC = c;
-                        targetPossible = possible;
-                    }
+                    if (possible.length < minCandidates) { minCandidates = possible.length; targetR = r; targetC = c; targetPossible = possible; }
                 }
             }
         }
-
         if (targetR === -1) return true;
-
         for (let num of targetPossible) {
             grid[targetR][targetC] = num;
-            if (SudokuEngine.solve(grid, BOX_SIZE, SIZE)) {
-                return true;
-            }
+            if (SudokuEngine.solve(grid, BOX_SIZE, SIZE)) return true;
             grid[targetR][targetC] = 0;
         }
         return false;
     }
-
-    // 生成完美合法的答案
     static generateSolution(BOX_SIZE, SIZE) {
         const grid = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
-        
-        // 预填对角线宫格，极大降低递归深度
         const fillBox = (r, c) => {
             const nums = Array.from({ length: SIZE }, (_, i) => i + 1);
-            SudokuEngine.shuffle(nums);
-            let idx = 0;
+            SudokuEngine.shuffle(nums); let idx = 0;
             for (let i = r; i < r + BOX_SIZE; i++)
                 for (let j = c; j < c + BOX_SIZE; j++)
                     grid[i][j] = nums[idx++];
         };
-        for (let i = 0; i < SIZE; i += BOX_SIZE) {
-            fillBox(i, i);
-        }
-        
+        for (let i = 0; i < SIZE; i += BOX_SIZE) fillBox(i, i);
         SudokuEngine.solve(grid, BOX_SIZE, SIZE);
         return grid;
     }
-
     static createPuzzle(solution, blanks) {
         const puzzle = solution.map(row => [...row]);
         const positions = [];
@@ -92,18 +66,14 @@ export class SudokuEngine {
         }
         return puzzle;
     }
-
     static getLegalCandidates(grid, row, col, BOX_SIZE, SIZE) {
         if (grid[row][col] !== 0) return [];
         const candidates = [];
         for (let num = 1; num <= SIZE; num++) {
-            if (SudokuEngine.isValid(grid, row, col, num, BOX_SIZE, SIZE)) {
-                candidates.push(num);
-            }
+            if (SudokuEngine.isValid(grid, row, col, num, BOX_SIZE, SIZE)) candidates.push(num);
         }
         return candidates;
     }
-
     static checkRegion(grid, r1, c1, r2, c2) {
         const startR = Math.min(r1, r2) - 1, endR = Math.max(r1, r2) - 1;
         const startC = Math.min(c1, c2) - 1, endC = Math.max(c1, c2) - 1;

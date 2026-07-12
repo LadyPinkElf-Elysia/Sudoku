@@ -15,7 +15,6 @@
             <div class="config-item">
                 <label>棋盘大小 N ({{ config.NMin }} - {{ config.NMax }}):</label>
                 <div class="input-group">
-                    <!-- 【核心改动】使用 config 里的对象引用 -->
                     <input type="number" v-model.number="config.N" :min="config.NMin" :max="config.NMax">
                     <span class="hint">生成 {{ config.N * config.N }} x {{ config.N * config.N }}</span>
                 </div>
@@ -38,7 +37,6 @@
             <div class="config-item" v-if="config.mode === 'limited'">
                 <label>允许的最大错误次数 ({{ config.errorLimitMin }} - {{ config.errorLimitMax }}):</label>
                 <div class="input-group">
-                    <!-- 【核心改动】使用 config 里的对象引用 -->
                     <input type="number" v-model.number="config.errorLimit" :min="config.errorLimitMin" :max="config.errorLimitMax">
                 </div>
             </div>
