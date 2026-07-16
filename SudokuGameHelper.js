@@ -1,6 +1,6 @@
 // SudokuGameHelper.js - 游戏辅助功能（含历史记录管理）
-import { SudokuGridHelper } from './SudokuGridHelper.js';
-import { SudokuEngine } from './SudokuEngine.js';
+import { SudokuGridHelper } from './util/SudokuGridHelper.js';
+import { GridUtils } from './util/SudokuGridUtils.js';
 
 export class SudokuGameHelper {
     // ===== 历史记录管理 =====
@@ -47,12 +47,10 @@ export class SudokuGameHelper {
         for (let b = 0; b < SIZE; b++) {
             const startR = Math.floor(b / BOX_SIZE) * BOX_SIZE + 1;
             const startC = (b % BOX_SIZE) * BOX_SIZE + 1;
-            const boxRow = Math.floor(b / BOX_SIZE) + 1;
-            const boxCol = (b % BOX_SIZE) + 1;
             regions.push({
                 r1: startR, c1: startC,
                 r2: startR + BOX_SIZE - 1, c2: startC + BOX_SIZE - 1,
-                label: `第${boxRow}行第${boxCol}列的宫`
+                label: `第${Math.floor(b / BOX_SIZE) + 1}行第${(b % BOX_SIZE) + 1}列的宫`
             });
         }
         return regions;
@@ -66,7 +64,7 @@ export class SudokuGameHelper {
         const regions = SudokuGameHelper.generateRegions(BOX_SIZE, SIZE);
 
         for (let region of regions) {
-            const result = SudokuEngine.checkRegion(grid, region.r1, region.c1, region.r2, region.c2);
+            const result = GridUtils.findDuplicates(grid, GridUtils.rectCoords, region.r1 - 1, region.c1 - 1, region.r2 - 1, region.c2 - 1);
             result.conflicts.forEach(p => conflictMap[p.r][p.c] = true);
             [...new Set(result.duplicateValues)].forEach(val => {
                 messages.push(`${region.label}有重复的数字 ${val}`);
@@ -81,9 +79,46 @@ export class SudokuGameHelper {
 
     // 获取提示
     static getHint(board, row, col, BOX_SIZE, SIZE) {
-        if (board[row][col].value !== 0) return { candidates: [] };
+        if (board[row][col].value !== 0) return [];
         const grid = SudokuGridHelper.getGridSnapshot(board);
-        const candidates = SudokuEngine.getLegalCandidates(grid, row, col, BOX_SIZE, SIZE);
-        return { candidates };
+        return GridUtils.getCandidates(grid, row, col, BOX_SIZE, SIZE);
     }
+
+    // ===== 游戏逻辑 =====
+
+    // 从 puzzle 创建 board 对象
+    static createBoard(puzzle) {
+        return puzzle.map(row => row.map(val => ({
+            value: val,
+            editable: val === 0,
+            conflict: false
+        })));
+    }
+
+    // 同步生成（Worker 失败时的回退）
+    static generateSync(BOX_SIZE, SIZE, blanks) {
+        const solution = GridUtils.generateSolution(BOX_SIZE, SIZE);
+        const puzzle = GridUtils.createPuzzle(solution, blanks);
+        return puzzle;
+    }
+
+    // 历史导航
+    static navigateHistory(board, historyMap, targetStep, SIZE, BOX_SIZE) {
+        if (!historyMap[targetStep]) return null;
+        const result = SudokuGameHelper.applyHistory(board, historyMap[targetStep], SIZE, BOX_SIZE);
+        return { messages: result.messages };
+    }
+
+    // 获取提示消息
+    static getHintMessage(board, row, col, BOX_SIZE, SIZE) {
+        if (row === null || col === null) return '💡 请先在棋盘上点击选中一个空格';
+        const cell = board[row][col];
+        if (!cell.editable) return '💡 此格是初始题目，不可编辑';
+        if (cell.value !== 0) return '💡 此格已填入数字';
+        const candidates = SudokuGameHelper.getHint(board, row, col, BOX_SIZE, SIZE);
+        return candidates.length === 0
+            ? '💡 此格当前没有任何合法数字可以填入，请检查盘面是否有冲突'
+            : `💡 此格可以填：${candidates.join('、')}`;
+    }
+
 }

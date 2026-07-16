@@ -1,5 +1,5 @@
 // SudokuGridHelper.js - 网格操作（单一职责）
-import { GridUtils } from './SudokuEngine.js';
+import { GridUtils } from './SudokuGridUtils.js';
 
 export class SudokuGridHelper {
     // 获取网格快照
@@ -33,12 +33,11 @@ export class SudokuGridHelper {
 
         // 检查行、列、宫的重复（使用 GridUtils.findDuplicates）
         const allPositions = [], messages = [];
-        const boxLabel = `第${Math.floor(boxStartR / BOX_SIZE) + 1}行第${Math.floor(boxStartC / BOX_SIZE) + 1}列的宫`;
 
         for (const { coords, label, args } of [
             { coords: GridUtils.rowCoords, label: `第${row + 1}行`, args: [row, SIZE] },
             { coords: GridUtils.colCoords, label: `第${col + 1}列`, args: [col, SIZE] },
-            { coords: GridUtils.boxCoords, label: boxLabel, args: [row, col, BOX_SIZE] }
+            { coords: GridUtils.boxCoords, label: `第${Math.floor(boxStartR / BOX_SIZE) + 1}行第${Math.floor(boxStartC / BOX_SIZE) + 1}列的宫`, args: [row, col, BOX_SIZE] }
         ]) {
             const { conflicts } = GridUtils.findDuplicates(grid, coords, ...args);
             allPositions.push(...conflicts);

@@ -7,8 +7,7 @@ export class SudokuRenderer {
         const dpr = window.devicePixelRatio || 1;
         
         // 获取父容器实际显示宽度
-        const displayWidth = canvas.parentElement.clientWidth;
-        const displaySize = Math.floor(displayWidth * 0.95);
+        const displaySize = Math.floor(canvas.parentElement.clientWidth * 0.95);
         
         // 根据 zoom 计算实际像素尺寸（高DPI）
         const pixelSize = Math.floor(displaySize * zoom * dpr);

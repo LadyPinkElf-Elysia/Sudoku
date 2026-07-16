@@ -1,6 +1,4 @@
-// SudokuEngine.js - 数独引擎（生成、求解、验证）
-
-// ===== 通用工具函数 =====
+// SudokuGridUtils.js - 数独网格通用工具函数（纯算法，无状态）
 export const GridUtils = {
     // 获取宫格起始行列
     boxStart(row, col, BOX_SIZE) {
@@ -66,11 +64,6 @@ export const GridUtils = {
             if (GridUtils.hasDuplicate(grid, GridUtils.boxCoords, sr, sc, BOX_SIZE)) return false;
         }
         return true;
-    },
-
-    // 检查是否有空格
-    hasEmpty(grid, SIZE) {
-        return GridUtils.each(grid, GridUtils.allCoords, (val) => val === 0, SIZE);
     },
 
     // 随机打乱数组
@@ -166,9 +159,13 @@ export const GridUtils = {
         const puzzle = solution.map(row => [...row]);
         const SIZE = puzzle.length;
         const BOX_SIZE = Math.sqrt(SIZE);
-        const removed = new Set(); // 记录已挖空的位置
+        const totalCells = SIZE * SIZE;
+        
+        // 限制 blanks 在合理范围内
+        blanks = Math.max(SIZE, Math.min(totalCells - 1, blanks || SIZE));
         
         // 第一步：每个宫格至少挖 1 个空（硬性要求）
+        const removed = new Set();
         for (let b = 0; b < SIZE; b++) {
             const sr = Math.floor(b / BOX_SIZE) * BOX_SIZE;
             const sc = (b % BOX_SIZE) * BOX_SIZE;
@@ -182,7 +179,7 @@ export const GridUtils = {
             removed.add(`${pos.r},${pos.c}`);
         }
         
-        // 第二步：如果用户指定的数量大于宫格数，随机挖剩余的空
+        // 第二步：如果还需要更多空格，随机挖剩余的空
         if (blanks > SIZE) {
             const remainingPositions = [];
             for (let r = 0; r < SIZE; r++)
@@ -218,15 +215,3 @@ export const GridUtils = {
         return { conflicts, duplicateValues };
     }
 };
-
-// 兼容旧代码的 SudokuEngine 类
-export class SudokuEngine {
-    static generateSolution(BOX_SIZE, SIZE) { return GridUtils.generateSolution(BOX_SIZE, SIZE); }
-    static createPuzzle(solution, blanks) { return GridUtils.createPuzzle(solution, blanks); }
-    static getLegalCandidates(grid, row, col, BOX_SIZE, SIZE) { return GridUtils.getCandidates(grid, row, col, BOX_SIZE, SIZE); }
-    static checkRegion(grid, r1, c1, r2, c2) {
-        const startR = Math.min(r1, r2) - 1, endR = Math.max(r1, r2) - 1;
-        const startC = Math.min(c1, c2) - 1, endC = Math.max(c1, c2) - 1;
-        return GridUtils.findDuplicates(grid, GridUtils.rectCoords, startR, startC, endR, endC);
-    }
-}
