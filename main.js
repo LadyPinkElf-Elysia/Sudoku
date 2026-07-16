@@ -76,6 +76,9 @@ const app = createApp({
             this.BOX_SIZE = this.config.N;
             this.SIZE = this.config.N * this.config.N;
             
+            // 立即切换到游戏页面显示加载遮罩
+            this.page = 'game';
+            
             if (sudokuWorker) sudokuWorker.terminate();
             sudokuWorker = null;
             const worker = getWorker();
@@ -85,7 +88,6 @@ const app = createApp({
                     this._applyBoard(e.data.puzzle);
                     worker.removeEventListener('message', handleMessage);
                     worker.removeEventListener('error', handleError);
-                    this.page = 'game';
                 } else if (e.data.type === 'generateError') {
                     console.error('Worker generation error:', e.data.error);
                     this.game.isGenerating = false;
@@ -116,7 +118,6 @@ const app = createApp({
         _generateSynchronous() {
             const puzzle = SudokuGameHelper.generateSync(this.BOX_SIZE, this.SIZE, this.config.blanks);
             this._applyBoard(puzzle);
-            this.page = 'game';
         },
         _applyBoard(puzzle) {
             this.game.board = markRaw(SudokuGameHelper.createBoard(puzzle));
@@ -150,7 +151,12 @@ const app = createApp({
             // 解析题目数据（API 返回的是 JSON 字符串）
             let puzzle = puzzleData.puzzle_data || puzzleData.puzzle;
             if (typeof puzzle === 'string') {
-                try { puzzle = JSON.parse(puzzle); } catch(e) { puzzle = []; }
+                try { puzzle = JSON.parse(puzzle); } catch(e) { console.error('解析题目失败:', e); puzzle = []; }
+            }
+            if (!Array.isArray(puzzle) || puzzle.length === 0) {
+                console.error('无效的题目数据:', puzzleData);
+                alert('题目数据无效，无法开始游戏');
+                return;
             }
             this._applyBoard(puzzle);
             this.page = 'game';
