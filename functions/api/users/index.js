@@ -1,5 +1,5 @@
 // Cloudflare Pages Functions - 用户 API
-export async function onRequest(context) {
+export async function onRequestPost(context) {
     const { request, env } = context;
     const url = new URL(request.url);
     const path = url.pathname.replace('/api/users', '');
@@ -12,13 +12,9 @@ export async function onRequest(context) {
         'Access-Control-Allow-Headers': 'Content-Type'
     };
 
-    if (request.method === 'OPTIONS') {
-        return new Response(null, { headers });
-    }
-
     try {
         // 注册
-        if (request.method === 'POST' && path === '/register') {
+        if (path === '/register') {
             const { username, password } = await request.json();
 
             if (!username || !password) {
@@ -50,7 +46,7 @@ export async function onRequest(context) {
         }
 
         // 登录
-        if (request.method === 'POST' && path === '/login') {
+        if (path === '/login') {
             const { username, password } = await request.json();
 
             if (!username || !password) {
@@ -73,8 +69,33 @@ export async function onRequest(context) {
             }), { headers });
         }
 
+        return new Response(JSON.stringify({
+            success: false, message: 'Not Found'
+        }), { status: 404, headers });
+
+    } catch (error) {
+        return new Response(JSON.stringify({
+            success: false, message: error.message
+        }), { status: 500, headers });
+    }
+}
+
+export async function onRequestGet(context) {
+    const { request, env } = context;
+    const url = new URL(request.url);
+    const path = url.pathname.replace('/api/users', '');
+    const db = env.DB;
+
+    const headers = {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type'
+    };
+
+    try {
         // 搜索用户
-        if (request.method === 'GET' && path === '/search') {
+        if (path === '/search') {
             const query = url.searchParams.get('q') || '';
             let users;
 
@@ -109,4 +130,14 @@ export async function onRequest(context) {
             success: false, message: error.message
         }), { status: 500, headers });
     }
+}
+
+export async function onRequestOptions(context) {
+    const headers = {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type'
+    };
+    return new Response(null, { headers });
 }
