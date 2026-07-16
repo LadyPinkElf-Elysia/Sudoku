@@ -147,7 +147,12 @@ const app = createApp({
             this.game.started = true;
             this.game.isGenerating = false;
             
-            this._applyBoard(puzzleData.puzzle_data || puzzleData.puzzle);
+            // 解析题目数据（API 返回的是 JSON 字符串）
+            let puzzle = puzzleData.puzzle_data || puzzleData.puzzle;
+            if (typeof puzzle === 'string') {
+                try { puzzle = JSON.parse(puzzle); } catch(e) { puzzle = []; }
+            }
+            this._applyBoard(puzzle);
             this.page = 'game';
         },
         async startRandomUserPuzzle() {
