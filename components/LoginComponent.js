@@ -1,5 +1,5 @@
 // LoginComponent.js - 登录/注册组件
-import { UserSystem } from './UserSystem.js';
+import { UserSystem } from '../UserSystem.js';
 
 export const LoginComponent = {
     template: `

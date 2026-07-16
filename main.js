@@ -120,7 +120,7 @@ const app = createApp({
             this._applyBoard(puzzle);
         },
         _applyBoard(puzzle) {
-            this.game.board = markRaw(SudokuGameHelper.createBoard(puzzle));
+            this.game.board = SudokuGameHelper.createBoard(puzzle);
             this.game.selectedRow = null; this.game.selectedCol = null;
             this.game.conflictMessages = [];
             this.historyMap = {}; this.stepPointer = -1;

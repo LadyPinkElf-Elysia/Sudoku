@@ -1,9 +1,9 @@
 // CreatePuzzleComponent.js - 出题组件（先出题再解题）
-import { SudokuGameHelper } from './SudokuGameHelper.js';
-import { PuzzleStorage } from './PuzzleStorage.js';
-import { SudokuRenderer } from './util/SudokuRenderer.js';
-import { SudokuGridHelper } from './util/SudokuGridHelper.js';
-import { handleSudokuKeyDown } from './util/SudokuKeyboard.js';
+import { SudokuGameHelper } from '../SudokuGameHelper.js';
+import { PuzzleStorage } from '../PuzzleStorage.js';
+import { SudokuRenderer } from '../util/SudokuRenderer.js';
+import { SudokuGridHelper } from '../util/SudokuGridHelper.js';
+import { handleSudokuKeyDown } from '../util/SudokuKeyboard.js';
 
 export const CreatePuzzleComponent = {
     template: `

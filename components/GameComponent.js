@@ -1,8 +1,8 @@
 // GameComponent.js - 游戏组件
-import { SudokuGameHelper } from './SudokuGameHelper.js';
-import { SudokuGridHelper } from './util/SudokuGridHelper.js';
-import { SudokuRenderer } from './util/SudokuRenderer.js';
-import { handleSudokuKeyDown } from './util/SudokuKeyboard.js';
+import { SudokuGameHelper } from '../SudokuGameHelper.js';
+import { SudokuGridHelper } from '../util/SudokuGridHelper.js';
+import { SudokuRenderer } from '../util/SudokuRenderer.js';
+import { handleSudokuKeyDown } from '../util/SudokuKeyboard.js';
 
 export const GameComponent = {
     template: `
@@ -203,6 +203,14 @@ export const GameComponent = {
                 undo: () => this.undo(),
                 redo: () => this.redo()
             });
+        }
+    },
+    watch: {
+        'game.board': {
+            handler() {
+                this.$nextTick(() => this.renderCanvas());
+            },
+            deep: true
         }
     },
     mounted() {
