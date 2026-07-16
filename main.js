@@ -1,12 +1,12 @@
 // main.js
 const { createApp, markRaw } = Vue;
 import { SudokuGameHelper } from './SudokuGameHelper.js';
-import { LoginComponent } from './LoginComponent.js';
-import { MainMenuComponent } from './MainMenuComponent.js';
-import { ConfigComponent } from './ConfigComponent.js';
-import { CreatePuzzleComponent } from './CreatePuzzleComponent.js';
-import { SearchPuzzlesComponent } from './SearchPuzzlesComponent.js';
-import { GameComponent } from './GameComponent.js';
+import { LoginComponent } from './components/LoginComponent.js';
+import { MainMenuComponent } from './components/MainMenuComponent.js';
+import { ConfigComponent } from './components/ConfigComponent.js';
+import { CreatePuzzleComponent } from './components/CreatePuzzleComponent.js';
+import { SearchPuzzlesComponent } from './components/SearchPuzzlesComponent.js';
+import { GameComponent } from './components/GameComponent.js';
 
 // Web Worker 管理
 let sudokuWorker = null;

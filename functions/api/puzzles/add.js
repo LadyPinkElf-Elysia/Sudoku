@@ -19,9 +19,13 @@ export async function onRequestPost(context) {
             }), { headers });
         }
 
+        // 将数组序列化为 JSON 字符串
+        const puzzleData = JSON.stringify(puzzle);
+        const solutionData = JSON.stringify(solution);
+
         const result = await db.prepare(
             'INSERT INTO puzzles (user_id, username, puzzle_data, solution_data, size, box_size, title, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-        ).bind(userId, username || '', puzzle, solution, SIZE || 3, BOX_SIZE || 3, title || '', Date.now()).run();
+        ).bind(userId, username || '', puzzleData, solutionData, SIZE || 3, BOX_SIZE || 3, title || '', Date.now()).run();
 
         return new Response(JSON.stringify({
             success: true,
