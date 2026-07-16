@@ -23,7 +23,7 @@ export async function onRequestGet(context) {
             const idNum = parseInt(query);
             if (!isNaN(idNum)) {
                 puzzles = await db.prepare(
-                    'SELECT * FROM puzzles WHERE id = ? OR userId = ? OR username LIKE ? OR title LIKE ?'
+                    'SELECT * FROM puzzles WHERE id = ? OR user_id = ? OR username LIKE ? OR title LIKE ?'
                 ).bind(idNum, idNum, `%${query}%`, `%${query}%`).all();
             } else {
                 puzzles = await db.prepare(

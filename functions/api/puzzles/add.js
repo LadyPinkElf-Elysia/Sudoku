@@ -20,7 +20,7 @@ export async function onRequestPost(context) {
         }
 
         const result = await db.prepare(
-            'INSERT INTO puzzles (userId, username, puzzle, solution, SIZE, BOX_SIZE, title, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO puzzles (user_id, username, puzzle_data, solution_data, size, box_size, title, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
         ).bind(userId, username || '', puzzle, solution, SIZE || 3, BOX_SIZE || 3, title || '', Date.now()).run();
 
         return new Response(JSON.stringify({
