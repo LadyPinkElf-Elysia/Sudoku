@@ -56,7 +56,7 @@ export class PuzzleStorage {
         try {
             const res = await fetch(`/api/puzzles/search?q=${userId}`);
             const data = await res.json();
-            return data.puzzles?.filter(p => p.userId === userId) || [];
+            return data.puzzles?.filter(p => p.user_id === userId) || [];
         } catch (e) {
             console.error('获取用户题目失败:', e);
             return [];

@@ -17,15 +17,15 @@ export const SearchPuzzlesComponent = {
             <div v-if="message" class="auth-message" :class="{ success: message.includes('找到') }">{{ message }}</div>
             
             <div v-if="searchResults.length > 0" class="search-results">
-                <div v-for="puzzle in searchResults" :key="puzzle.id" class="puzzle-card" @click="$emit('startPuzzle', puzzle)">
-                    <div class="puzzle-card-header">
-                        <span class="puzzle-id">#{{ puzzle.id }}</span>
-                        <span class="puzzle-size">{{ puzzle.SIZE }}×{{ puzzle.SIZE }}</span>
+                    <div v-for="puzzle in searchResults" :key="puzzle.id" class="puzzle-card" @click="$emit('startPuzzle', puzzle)">
+                        <div class="puzzle-card-header">
+                            <span class="puzzle-id">#{{ puzzle.id }}</span>
+                            <span class="puzzle-size">{{ puzzle.size || puzzle.SIZE }}×{{ puzzle.size || puzzle.SIZE }}</span>
+                        </div>
+                        <div class="puzzle-card-title">{{ puzzle.title }}</div>
+                        <div class="puzzle-card-author">👤 {{ puzzle.username }} (ID: {{ puzzle.user_id || puzzle.userId }})</div>
+                        <div class="puzzle-card-date">{{ new Date(puzzle.created_at || puzzle.createdAt).toLocaleDateString() }}</div>
                     </div>
-                    <div class="puzzle-card-title">{{ puzzle.title }}</div>
-                    <div class="puzzle-card-author">👤 {{ puzzle.username }} (ID: {{ puzzle.userId }})</div>
-                    <div class="puzzle-card-date">{{ new Date(puzzle.createdAt).toLocaleDateString() }}</div>
-                </div>
             </div>
             
             <div v-if="searchResults.length === 0 && message && !message.includes('找到')" class="empty-state">

@@ -137,9 +137,9 @@ const app = createApp({
         // ===== 用户题目 =====
         startUserPuzzle(puzzleData) {
             this.currentPuzzleData = puzzleData;
-            this.SIZE = puzzleData.SIZE;
-            this.BOX_SIZE = puzzleData.BOX_SIZE;
-            this.config.N = puzzleData.BOX_SIZE;
+            this.SIZE = puzzleData.size || puzzleData.SIZE;
+            this.BOX_SIZE = puzzleData.box_size || puzzleData.BOX_SIZE;
+            this.config.N = this.BOX_SIZE;
             
             this.game.errors = 0;
             this.game.over = false;
@@ -147,7 +147,7 @@ const app = createApp({
             this.game.started = true;
             this.game.isGenerating = false;
             
-            this._applyBoard(puzzleData.puzzle);
+            this._applyBoard(puzzleData.puzzle_data || puzzleData.puzzle);
             this.page = 'game';
         },
         async startRandomUserPuzzle() {

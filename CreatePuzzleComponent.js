@@ -135,7 +135,7 @@ export const CreatePuzzleComponent = {
             );
             
             if (saveResult.success) {
-                this.message = '✅ 题目保存成功！题目ID: ' + saveResult.puzzleId;
+                this.message = '✅ 题目保存成功！题目ID: ' + saveResult.puzzle.id;
                 this.puzzleInput = '';
                 this.solutionInput = '';
                 this.puzzleTitle = '';
