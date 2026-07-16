@@ -1,65 +1,132 @@
+// SudokuRenderer.js - Canvas 渲染（单一职责）
 export class SudokuRenderer {
-    static draw(canvas, board, SIZE, BOX_SIZE, selectedRow, selectedCol) {
-        if (!canvas) return;
-        const rect = canvas.parentElement.getBoundingClientRect();
-        const size = Math.floor(rect.width * 0.95);
-        canvas.width = size; canvas.height = size;
-        const ctx = canvas.getContext('2d');
-        const cellSize = size / SIZE;
-        if (!board || board.length === 0) return;
+    static draw(canvas, board, SIZE, BOX_SIZE, selectedRow, selectedCol, zoom = 1.0) {
+        if (!canvas || !board || board.length === 0) return;
 
-        ctx.clearRect(0, 0, size, size);
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+        
+        // 获取父容器实际显示宽度
+        const displayWidth = canvas.parentElement.clientWidth;
+        const displayHeight = displayWidth; // 正方形
+        const displaySize = Math.floor(displayWidth * 0.95);
+        
+        // 根据 zoom 计算实际像素尺寸（高DPI）
+        const pixelSize = Math.floor(displaySize * zoom * dpr);
+        const cssSize = Math.floor(displaySize * zoom);
+        
+        // 只在尺寸变化时重新设置 Canvas 缓冲区
+        if (canvas.width !== pixelSize || canvas.height !== pixelSize) {
+            canvas.width = pixelSize;
+            canvas.height = pixelSize;
+            canvas.style.width = cssSize + 'px';
+            canvas.style.height = cssSize + 'px';
+        }
+        
+        // 缩放上下文以匹配 DPR
+        ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, 0, 0);
+        
+        const cellSize = displaySize / SIZE;
+
+        ctx.clearRect(0, 0, displaySize, displaySize);
+        
+        // 1. 棋盘整体背景
         ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, size, size);
+        ctx.fillRect(0, 0, displaySize, displaySize);
+        
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
 
+        // 预计算宫格索引
+        const boxRow = selectedRow !== null ? Math.floor(selectedRow / BOX_SIZE) : -1;
+        const boxCol = selectedCol !== null ? Math.floor(selectedCol / BOX_SIZE) : -1;
+
+        // 2. 绘制所有单元格背景
         for (let r = 0; r < SIZE; r++) {
             for (let c = 0; c < SIZE; c++) {
                 const cell = board[r][c];
                 const x = c * cellSize, y = r * cellSize;
+                const cellBoxRow = Math.floor(r / BOX_SIZE);
+                const cellBoxCol = Math.floor(c / BOX_SIZE);
 
-                // 1. 绘制背景色：红黄区分！
                 if (cell.conflict) {
-                    if (!cell.editable) ctx.fillStyle = '#ffffff'; // 固定题目保持白底
-                    else ctx.fillStyle = '#fee2e2';                // 玩家输入红底
+                    ctx.fillStyle = '#fecaca';
                 } else if (selectedRow === r && selectedCol === c) {
-                    ctx.fillStyle = '#dbeafe';
+                    ctx.fillStyle = '#bbf7d0';
+                } else if (boxRow !== -1 && cellBoxRow === boxRow && cellBoxCol === boxCol) {
+                    ctx.fillStyle = '#f0f4f8';
                 } else {
-                    ctx.fillStyle = '#ffffff';
+                    const isEvenBox = (cellBoxRow + cellBoxCol) % 2 === 0;
+                    ctx.fillStyle = isEvenBox ? '#ffffff' : '#fafafa';
                 }
-                ctx.fillRect(x, y, cellSize, cellSize);
+                ctx.fillRect(x + 0.5, y + 0.5, cellSize - 1, cellSize - 1);
+            }
+        }
 
-                // 2. 绘制网格细线
-                ctx.strokeStyle = '#e5e7eb';
-                ctx.lineWidth = 0.5;
-                ctx.strokeRect(x, y, cellSize, cellSize);
-
-                // 3. 绘制文字（冲突时文字统一变红）
-                if (cell.value !== 0) {
-                    ctx.font = `600 ${cellSize * 0.6}px Arial, sans-serif`;
-                    if (cell.conflict) ctx.fillStyle = '#b91c1c';
-                    else ctx.fillStyle = cell.editable ? '#4f46e5' : '#1f2937';
-                    ctx.fillText(cell.value, x + cellSize / 2, y + cellSize / 2);
+        // 3. 绘制数字
+        for (let r = 0; r < SIZE; r++) {
+            for (let c = 0; c < SIZE; c++) {
+                const cell = board[r][c];
+                if (cell.value === 0) continue;
+                
+                const x = c * cellSize, y = r * cellSize;
+                const fontSize = Math.round(cellSize * 0.45);
+                ctx.font = `500 ${fontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`;
+                
+                if (cell.conflict) {
+                    ctx.fillStyle = '#dc2626';
+                } else if (cell.editable) {
+                    ctx.fillStyle = '#475569';
+                } else {
+                    ctx.fillStyle = '#1f2937';
                 }
+                ctx.fillText(cell.value, x + cellSize / 2, y + cellSize / 2);
+            }
+        }
 
-                // 4. 【关键】绘制固定题目的黄色粗边框
+        // 4. 绘制冲突固定题目的橙色边框
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = 2;
+        for (let r = 0; r < SIZE; r++) {
+            for (let c = 0; c < SIZE; c++) {
+                const cell = board[r][c];
                 if (cell.conflict && !cell.editable) {
-                    ctx.strokeStyle = '#eab308'; // 黄色
-                    ctx.lineWidth = 3;
-                    ctx.strokeRect(x, y, cellSize, cellSize);
+                    const x = c * cellSize, y = r * cellSize;
+                    ctx.strokeRect(x + 2, y + 2, cellSize - 4, cellSize - 4);
                 }
             }
         }
 
-        // 5. 覆盖宫格粗线
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = '#9ca3af';
+        // 5. 绘制宫格粗线（路径批处理）
+        ctx.strokeStyle = '#374151';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
         for (let i = 0; i <= SIZE; i += BOX_SIZE) {
             const pos = i * cellSize;
-            ctx.beginPath(); ctx.moveTo(pos, 0); ctx.lineTo(pos, size); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(0, pos); ctx.lineTo(size, pos); ctx.stroke();
+            ctx.moveTo(pos, 0);
+            ctx.lineTo(pos, displaySize);
+            ctx.moveTo(0, pos);
+            ctx.lineTo(displaySize, pos);
         }
+        ctx.stroke();
+
+        // 6. 绘制细网格线（宫格内部的线）
+        ctx.strokeStyle = '#d1d5db';
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        for (let i = 1; i < SIZE; i++) {
+            if (i % BOX_SIZE === 0) continue; // 宫格线已画
+            const pos = i * cellSize;
+            ctx.moveTo(pos, 0);
+            ctx.lineTo(pos, displaySize);
+            ctx.moveTo(0, pos);
+            ctx.lineTo(displaySize, pos);
+        }
+        ctx.stroke();
+
+        // 7. 绘制外边框
+        ctx.strokeStyle = '#374151';
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(0.5, 0.5, displaySize - 1, displaySize - 1);
     }
 }

@@ -105,6 +105,14 @@
                     <button class="btn btn-primary" style="background: #b91c1c;" @click="resetGame">重新开始</button>
                 </div>
             </div>
+
+            <!-- 加载中遮罩 -->
+            <div class="loading-overlay" v-if="game.isGenerating">
+                <div class="loading-content">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">正在生成数独谜题...</div>
+                </div>
+            </div>
         </div>
     </div>
     <script type="module" src="main.js"></script>
