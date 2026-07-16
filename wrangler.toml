@@ -5,4 +5,4 @@ pages_build_output_dir = "."
 [[d1_databases]]
 binding = "DB"
 database_name = "sudoku-db"
-database_id = "f822a510dc375cfba381600500f1d97b"
+database_id = "e2bf917d-0b5d-42db-ba92-ab13caf2a54d"
