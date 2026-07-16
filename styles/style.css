@@ -313,3 +313,17 @@ body {
 .history-steps-container::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
 }
+
+/* ===== 出题组件 ===== */
+.create-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 12px;
+    flex-wrap: wrap;
+}
+.create-board-wrapper {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
