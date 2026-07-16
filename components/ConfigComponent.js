@@ -10,14 +10,14 @@ export const ConfigComponent = {
             <div class="config-item">
                 <label>棋盘大小 N ({{ config.NMin }} - {{ config.NMax }}):</label>
                 <div class="input-group">
-                    <input type="number" v-model.number="config.N" :min="config.NMin" :max="config.NMax">
-                    <span class="hint">生成 {{ config.N * config.N }} x {{ config.N * config.N }}</span>
+                    <input type="number" v-model.number="localN" :min="config.NMin" :max="config.NMax" @input="onNChange">
+                    <span class="hint">生成 {{ localN * localN }} x {{ localN * localN }}</span>
                 </div>
             </div>
             <div class="config-item">
                 <label>挖空数量 ({{ minBlanks }} ~ {{ maxBlanks }}):</label>
                 <div class="input-group">
-                    <input type="number" v-model.number="config.blanks" :min="minBlanks" :max="maxBlanks">
+                    <input type="number" v-model.number="localBlanks" :min="minBlanks" :max="maxBlanks" @input="onBlanksChange">
                 </div>
             </div>
             <div class="config-item">
@@ -35,7 +35,7 @@ export const ConfigComponent = {
                     <input type="number" v-model.number="config.errorLimit" :min="config.errorLimitMin" :max="config.errorLimitMax">
                 </div>
             </div>
-            <button class="btn btn-primary btn-block" @click="$emit('start')">🚀 开始游戏</button>
+            <button class="btn btn-primary btn-block" @click="onStart">🚀 开始游戏</button>
         </div>
     `,
     props: {
@@ -43,5 +43,30 @@ export const ConfigComponent = {
         minBlanks: { type: Number, default: 0 },
         maxBlanks: { type: Number, default: 0 }
     },
-    emits: ['start', 'back']
+    emits: ['start', 'back'],
+    data() {
+        return {
+            localN: this.config.N,
+            localBlanks: this.config.blanks !== null ? this.config.blanks : this.minBlanks
+        };
+    },
+    watch: {
+        'config.N'(val) { this.localN = val; },
+        'config.blanks'(val) { this.localBlanks = val !== null ? val : this.minBlanks; }
+    },
+    methods: {
+        onNChange() {
+            this.localN = Math.max(this.config.NMin, Math.min(this.config.NMax, this.localN || this.config.NMin));
+            this.config.N = this.localN;
+        },
+        onBlanksChange() {
+            this.localBlanks = Math.max(this.minBlanks, Math.min(this.maxBlanks, this.localBlanks || this.minBlanks));
+            this.config.blanks = this.localBlanks;
+        },
+        onStart() {
+            this.config.N = this.localN;
+            this.config.blanks = this.localBlanks;
+            this.$emit('start');
+        }
+    }
 };
