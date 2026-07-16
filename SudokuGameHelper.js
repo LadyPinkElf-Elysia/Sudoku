@@ -109,6 +109,86 @@ export class SudokuGameHelper {
         return { messages: result.messages };
     }
 
+    // ===== 题目验证 =====
+
+    // 验证参考答案是否合法（使用集合检测，检查行列宫格是否有重复）
+    // 返回 { valid: boolean, message: string }
+    static validateSolution(solution, BOX_SIZE, SIZE) {
+        // 检查尺寸
+        if (!solution || solution.length !== SIZE) {
+            return { valid: false, message: `题目尺寸不正确，应为 ${SIZE}×${SIZE}` };
+        }
+        for (let r = 0; r < SIZE; r++) {
+            if (!solution[r] || solution[r].length !== SIZE) {
+                return { valid: false, message: `第${r + 1}行尺寸不正确` };
+            }
+        }
+
+        // 检查每个格子是否在 0~SIZE 范围内
+        for (let r = 0; r < SIZE; r++) {
+            for (let c = 0; c < SIZE; c++) {
+                const val = solution[r][c];
+                if (typeof val !== 'number' || val < 0 || val > SIZE || !Number.isInteger(val)) {
+                    return { valid: false, message: `第${r + 1}行第${c + 1}列的值 ${val} 不合法（应为 0-${SIZE} 的整数）` };
+                }
+            }
+        }
+
+        // 使用集合检测行列宫格是否有重复
+        // 检查行
+        for (let r = 0; r < SIZE; r++) {
+            const set = new Set();
+            for (let c = 0; c < SIZE; c++) {
+                const val = solution[r][c];
+                if (val === 0) continue;
+                if (set.has(val)) {
+                    return { valid: false, message: `第${r + 1}行有重复的数字 ${val}` };
+                }
+                set.add(val);
+            }
+        }
+
+        // 检查列
+        for (let c = 0; c < SIZE; c++) {
+            const set = new Set();
+            for (let r = 0; r < SIZE; r++) {
+                const val = solution[r][c];
+                if (val === 0) continue;
+                if (set.has(val)) {
+                    return { valid: false, message: `第${c + 1}列有重复的数字 ${val}` };
+                }
+                set.add(val);
+            }
+        }
+
+        // 检查宫格
+        for (let b = 0; b < SIZE; b++) {
+            const sr = Math.floor(b / BOX_SIZE) * BOX_SIZE;
+            const sc = (b % BOX_SIZE) * BOX_SIZE;
+            const set = new Set();
+            for (let r = sr; r < sr + BOX_SIZE; r++) {
+                for (let c = sc; c < sc + BOX_SIZE; c++) {
+                    const val = solution[r][c];
+                    if (val === 0) continue;
+                    if (set.has(val)) {
+                        return { valid: false, message: `第${Math.floor(b / BOX_SIZE) + 1}行第${(b % BOX_SIZE) + 1}列的宫有重复的数字 ${val}` };
+                    }
+                    set.add(val);
+                }
+            }
+        }
+
+        // 检查是否至少有一个解（即每个空格都能填）
+        // 使用 GridUtils 的 solve 来验证（传入深拷贝，避免修改原数组）
+        const grid = solution.map(row => [...row]);
+        const hasSolution = GridUtils.solve(grid, BOX_SIZE, SIZE);
+        if (!hasSolution) {
+            return { valid: false, message: '此题目无解，请检查题目设置' };
+        }
+
+        return { valid: true, message: '✅ 题目验证通过！' };
+    }
+
     // 获取提示消息
     static getHintMessage(board, row, col, BOX_SIZE, SIZE) {
         if (row === null || col === null) return '💡 请先在棋盘上点击选中一个空格';

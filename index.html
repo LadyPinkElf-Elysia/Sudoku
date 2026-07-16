@@ -9,111 +9,61 @@
 </head>
 <body>
     <div id="app" v-cloak>
+        <!-- 登录页 -->
+        <login-component v-if="page === 'login'" @login="onLogin"></login-component>
         
-        <div v-if="!game.started" class="config-panel">
-            <h2>⚙️ 游戏设置</h2>
-            <div class="config-item">
-                <label>棋盘大小 N ({{ config.NMin }} - {{ config.NMax }}):</label>
-                <div class="input-group">
-                    <input type="number" v-model.number="config.N" :min="config.NMin" :max="config.NMax">
-                    <span class="hint">生成 {{ config.N * config.N }} x {{ config.N * config.N }}</span>
-                </div>
-            </div>
-            <div class="config-item">
-                <label>挖空数量 ({{ minBlanks }} ~ {{ maxBlanks }}):</label>
-                <div class="input-group">
-                    <input type="number" v-model.number="config.blanks" :min="minBlanks" :max="maxBlanks">
-                </div>
-            </div>
-            <div class="config-item">
-                <label>游戏模式:</label>
-                <div class="input-group">
-                    <select v-model="config.mode">
-                        <option value="infinite">♾️ 无限试错模式</option>
-                        <option value="limited">⚖️ 有限犯错模式</option>
-                    </select>
-                </div>
-            </div>
-            <div class="config-item" v-if="config.mode === 'limited'">
-                <label>允许的最大错误次数 ({{ config.errorLimitMin }} - {{ config.errorLimitMax }}):</label>
-                <div class="input-group">
-                    <input type="number" v-model.number="config.errorLimit" :min="config.errorLimitMin" :max="config.errorLimitMax">
-                </div>
-            </div>
-            <button class="btn btn-primary btn-block" @click="startGame">🚀 开始游戏</button>
-        </div>
-
-        <div v-if="game.started" class="game-area">
-            <div class="status-bar">
-                <h2>🧩 {{ getSizeLabel }}</h2>
-                <div class="zoom-controls">
-                    <button class="zoom-btn" @click="zoomOut" :disabled="zoom <= 0.5">−</button>
-                    <span class="zoom-text">{{ Math.round(zoom * 100) || 100 }}%</span>
-                    <button class="zoom-btn" @click="zoomIn" :disabled="zoom >= 3">+</button>
-                </div>
-                <div class="status-right">
-                    <span class="error-count" v-if="config.mode === 'limited'">
-                        ❌ 错误: {{ game.errors }} / {{ config.errorLimit }}
-                    </span>
-                    <button class="btn btn-secondary" @click="resetGame">🔄 重设</button>
-                </div>
-            </div>
-
-            <div class="board-scroll-container">
-                <div class="board-wrapper" :style="{ width: (100 * zoom) + '%', height: (100 * zoom) + '%', transform: 'scale(' + zoom + ')', transformOrigin: '0 0' }">
-                    <canvas id="sudokuCanvas" class="board-canvas"></canvas>
-                </div>
-            </div>
-
-            <div class="num-pad-wrapper">
-                <div class="num-grid" :style="{ gridTemplateColumns: `repeat(${BOX_SIZE}, minmax(0, 1fr))` }">
-                    <button v-for="n in SIZE" :key="n" class="num-btn" @click="inputNumber(n)">{{ n }}</button>
-                </div>
-                <button class="num-btn clear-btn" @click="clearSelected"></button>
-                
-                <div class="action-row">
-                    <button class="action-btn" @click="undo" :disabled="stepPointer <= 0 || game.isGenerating" title="撤回">↩️</button>
-                    <button class="action-btn" @click="redo" :disabled="!historyMap[stepPointer + 1] || game.isGenerating" title="重做">↪️</button>
-                    <button class="action-btn" @click="giveHint" :disabled="game.isGenerating" title="提示">💡</button>
-                </div>
-
-                <div class="history-steps-container" v-if="stepKeys.length > 1">
-                    <div v-for="step in stepKeys" :key="step" class="step-block" :class="{ active: stepPointer === step }" @click="movePointer(step)">第{{ step + 1 }}步</div>
-                </div>
-            </div>
-
-            <div v-if="game.hintMessage" class="hint-box">{{ game.hintMessage }}</div>
-            <div v-if="game.conflictMessages.length > 0" class="conflict-box">
-                <strong>⚠️ 冲突提示：</strong>
-                <ul>
-                    <li v-for="msg in game.conflictMessages" :key="msg">{{ msg }}</li>
-                </ul>
-            </div>
-            
-            <div class="victory-overlay" v-if="game.complete">
-                <div class="victory-dialog">
-                    <h3>🎉 恭喜完成！</h3>
-                    <p>你成功解开了 {{ SIZE }}x{{ SIZE }} 的数独！</p>
-                    <button class="btn btn-primary" @click="resetGame">再来一局</button>
-                </div>
-            </div>
-
-            <div class="victory-overlay" v-if="game.over && !game.complete">
-                <div class="victory-dialog" style="border: 2px solid #b91c1c;">
-                    <h3 style="color: #b91c1c;">💀 游戏失败</h3>
-                    <p>错误次数已超过设定的上限 ({{ config.errorLimit }}次)。</p>
-                    <button class="btn btn-primary" style="background: #b91c1c;" @click="resetGame">重新开始</button>
-                </div>
-            </div>
-
-            <!-- 加载中遮罩 -->
-            <div class="loading-overlay" v-if="game.isGenerating">
-                <div class="loading-content">
-                    <div class="loading-spinner"></div>
-                    <div class="loading-text">正在生成数独谜题...</div>
-                </div>
-            </div>
-        </div>
+        <!-- 主菜单 -->
+        <main-menu-component 
+            v-if="page === 'mainMenu'" 
+            :current-user="currentUser"
+            @start-system-game="startSystemGame"
+            @start-random-user-puzzle="startRandomUserPuzzle"
+            @create-puzzle="goToCreatePuzzle"
+            @search-puzzles="goToSearchPuzzles"
+            @logout="onLogout"
+        ></main-menu-component>
+        
+        <!-- 游戏配置 -->
+        <config-component 
+            v-if="page === 'config'"
+            :config="config"
+            :min-blanks="minBlanks"
+            :max-blanks="maxBlanks"
+            @start="startFromConfig"
+            @back="goToMainMenu"
+        ></config-component>
+        
+        <!-- 出题 -->
+        <create-puzzle-component 
+            v-if="page === 'createPuzzle'"
+            :current-user="currentUser"
+            @back="goToMainMenu"
+        ></create-puzzle-component>
+        
+        <!-- 搜索题目 -->
+        <search-puzzles-component 
+            v-if="page === 'searchPuzzles'"
+            @back="goToMainMenu"
+            @start-puzzle="startUserPuzzle"
+        ></search-puzzles-component>
+        
+        <!-- 游戏 -->
+        <game-component 
+            v-if="page === 'game'"
+            :game="game"
+            :config="config"
+            :history-map="historyMap"
+            :step-pointer="stepPointer"
+            :zoom="zoom"
+            :box-size="BOX_SIZE"
+            :size="SIZE"
+            @back="goToMainMenu"
+            @reset="resetGame"
+            @update:game="updateGame"
+            @update:history-map="updateHistoryMap"
+            @update:step-pointer="updateStepPointer"
+            @update:zoom="updateZoom"
+        ></game-component>
     </div>
     <script type="module" src="main.js"></script>
 </body>

@@ -1,0 +1,12 @@
+name = "sudoku"
+compatibility_date = "2024-12-01"
+pages_build_output_dir = "."
+
+# 部署后运行以下命令创建 D1 数据库并替换 database_id：
+# wrangler d1 create sudoku-db
+# 然后将输出的 database_id 填入下方
+
+[[d1_databases]]
+binding = "DB"
+database_name = "sudoku-db"
+database_id = "YOUR_DATABASE_ID_HERE"

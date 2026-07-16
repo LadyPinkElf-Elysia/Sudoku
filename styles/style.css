@@ -191,6 +191,67 @@ body {
     cursor: pointer;
 }
 
+/* ===== 登录/注册 ===== */
+.auth-panel { padding: 20px 0; }
+.auth-panel h2 { margin-bottom: 20px; color: #2d3748; font-size: 1.3rem; }
+.auth-tabs { display: flex; gap: 0; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; }
+.auth-tab { flex: 1; padding: 10px; border: none; background: transparent; cursor: pointer; font-size: 0.95rem; color: #6b7280; font-weight: 500; transition: all 0.2s; }
+.auth-tab.active { color: #6366f1; border-bottom: 2px solid #6366f1; margin-bottom: -2px; }
+.auth-form { display: flex; flex-direction: column; gap: 14px; }
+.auth-field { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.auth-field label { font-size: 0.85rem; font-weight: 600; color: #374151; }
+.auth-field input { width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid #d1d5db; font-size: 0.9rem; }
+.auth-message { margin-top: 12px; padding: 8px 12px; border-radius: 8px; font-size: 0.85rem; color: #dc2626; background: #fee2e2; text-align: center; }
+.auth-message.success { color: #16a34a; background: #dcfce7; }
+
+/* ===== 主菜单 ===== */
+.main-menu { padding: 8px 0; }
+.menu-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 8px; }
+.menu-header h2 { font-size: 1.3rem; color: #2d3748; }
+.user-info { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; color: #6b7280; }
+.btn-sm { padding: 4px 12px; font-size: 0.8rem; }
+.menu-section { margin-bottom: 20px; }
+.menu-section h3 { font-size: 0.95rem; color: #374151; margin-bottom: 10px; text-align: left; }
+.menu-options { display: flex; flex-direction: column; gap: 8px; }
+.menu-card { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 12px; border: 1px solid #e5e7eb; background: #fafafa; cursor: pointer; transition: all 0.2s; text-align: left; }
+.menu-card:hover { background: #eef2ff; border-color: #a5b4fc; transform: translateY(-1px); box-shadow: 0 2px 8px rgba(99,102,241,0.1); }
+.menu-card-icon { font-size: 1.8rem; width: 44px; text-align: center; }
+.menu-card-title { font-weight: 600; color: #1f2937; font-size: 0.95rem; }
+.menu-card-desc { font-size: 0.8rem; color: #6b7280; }
+
+/* ===== 配置面板 ===== */
+.config-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.config-header h2 { font-size: 1.1rem; color: #2d3748; margin: 0; }
+
+/* ===== 出题 ===== */
+.create-puzzle-panel { padding: 8px 0; }
+.puzzle-input-area { margin-bottom: 12px; }
+.input-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 0.85rem; font-weight: 600; color: #374151; }
+.puzzle-input-area textarea { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid #d1d5db; font-size: 0.85rem; font-family: 'Courier New', monospace; resize: vertical; line-height: 1.5; }
+
+/* ===== 搜索题目 ===== */
+.search-puzzles-panel { padding: 8px 0; }
+.search-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+.search-results { display: flex; flex-direction: column; gap: 8px; max-height: 50vh; overflow-y: auto; }
+.puzzle-card { padding: 12px 14px; border-radius: 10px; border: 1px solid #e5e7eb; background: #fafafa; cursor: pointer; transition: all 0.2s; text-align: left; }
+.puzzle-card:hover { background: #eef2ff; border-color: #a5b4fc; }
+.puzzle-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.puzzle-id { font-weight: 700; color: #6366f1; font-size: 0.9rem; }
+.puzzle-size { font-size: 0.8rem; color: #6b7280; background: #f3f4f6; padding: 2px 8px; border-radius: 10px; }
+.puzzle-card-title { font-weight: 600; color: #1f2937; font-size: 0.9rem; margin-bottom: 2px; }
+.puzzle-card-author { font-size: 0.8rem; color: #6b7280; }
+.puzzle-card-date { font-size: 0.75rem; color: #9ca3af; margin-top: 2px; }
+.empty-state { padding: 30px; text-align: center; color: #9ca3af; }
+
+/* ===== 游客模式 ===== */
+.auth-divider { display: flex; align-items: center; margin: 16px 0; color: #9ca3af; font-size: 0.85rem; }
+.auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: #e5e7eb; }
+.auth-divider span { padding: 0 12px; }
+.guest-hint { font-size: 0.75rem; color: #9ca3af; margin-top: 6px; text-align: center; }
+
+/* ===== 游戏状态栏 ===== */
+.status-left { display: flex; align-items: center; gap: 8px; }
+
 /* ===== 加载中遮罩 ===== */
 .loading-overlay {
     position: fixed;
