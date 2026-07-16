@@ -20,8 +20,8 @@ export const MainMenuComponent = {
                     </div>
                     <div class="menu-card" @click="$emit('startRandomUserPuzzle')">
                         <div class="menu-card-icon">🎲</div>
-                        <div class="menu-card-title">随机用户题目</div>
-                        <div class="menu-card-desc">从用户创建的题目中随机选择</div>
+                        <div class="menu-card-title">随机挑战用户题目</div>
+                        <div class="menu-card-desc">从所有用户创建的题目中随机选择一道</div>
                     </div>
                 </div>
             </div>
