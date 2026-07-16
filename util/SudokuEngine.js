@@ -1,199 +1,232 @@
-export class SudokuEngine {
-    static shuffle(arr) {
+// SudokuEngine.js - 数独引擎（生成、求解、验证）
+
+// ===== 通用工具函数 =====
+export const GridUtils = {
+    // 获取宫格起始行列
+    boxStart(row, col, BOX_SIZE) {
+        return {
+            r: Math.floor(row / BOX_SIZE) * BOX_SIZE,
+            c: Math.floor(col / BOX_SIZE) * BOX_SIZE
+        };
+    },
+
+    // 坐标生成器
+    *rowCoords(row, SIZE) {
+        for (let c = 0; c < SIZE; c++) yield { r: row, c };
+    },
+    *colCoords(col, SIZE) {
+        for (let r = 0; r < SIZE; r++) yield { r, c: col };
+    },
+    *boxCoords(row, col, BOX_SIZE) {
+        const { r: sr, c: sc } = GridUtils.boxStart(row, col, BOX_SIZE);
+        for (let r = sr; r < sr + BOX_SIZE; r++)
+            for (let c = sc; c < sc + BOX_SIZE; c++)
+                yield { r, c };
+    },
+    *rectCoords(r1, c1, r2, c2) {
+        for (let r = r1; r <= r2; r++)
+            for (let c = c1; c <= c2; c++)
+                yield { r, c };
+    },
+    *allCoords(SIZE) {
+        for (let r = 0; r < SIZE; r++)
+            for (let c = 0; c < SIZE; c++)
+                yield { r, c };
+    },
+
+    // 遍历格子，对每个值调用 fn(val, r, c)，fn 返回 true 时提前终止
+    each(grid, coords, fn, ...args) {
+        for (const { r, c } of coords(...args)) {
+            if (fn(grid[r][c], r, c)) return true;
+        }
+        return false;
+    },
+
+    // 检查一组格子是否有重复值
+    hasDuplicate(grid, coords, ...args) {
+        const set = new Set();
+        return GridUtils.each(grid, coords, (val) => {
+            if (val !== 0) {
+                if (set.has(val)) return true;
+                set.add(val);
+            }
+            return false;
+        }, ...args);
+    },
+
+    // 验证整个数独
+    validate(grid, BOX_SIZE, SIZE) {
+        for (let r = 0; r < SIZE; r++)
+            if (GridUtils.hasDuplicate(grid, GridUtils.rowCoords, r, SIZE)) return false;
+        for (let c = 0; c < SIZE; c++)
+            if (GridUtils.hasDuplicate(grid, GridUtils.colCoords, c, SIZE)) return false;
+        for (let b = 0; b < SIZE; b++) {
+            const sr = Math.floor(b / BOX_SIZE) * BOX_SIZE;
+            const sc = (b % BOX_SIZE) * BOX_SIZE;
+            if (GridUtils.hasDuplicate(grid, GridUtils.boxCoords, sr, sc, BOX_SIZE)) return false;
+        }
+        return true;
+    },
+
+    // 检查是否有空格
+    hasEmpty(grid, SIZE) {
+        return GridUtils.each(grid, GridUtils.allCoords, (val) => val === 0, SIZE);
+    },
+
+    // 随机打乱数组
+    shuffle(arr) {
         for (let i = arr.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
-            const temp = arr[i];
-            arr[i] = arr[j];
-            arr[j] = temp;
+            [arr[i], arr[j]] = [arr[j], arr[i]];
         }
-    }
+    },
 
-    // 使用位运算优化的 isValid 检查
-    static isValid(grid, row, col, num, BOX_SIZE, SIZE) {
+    // 填充对角线宫格
+    fillDiagonalBoxes(grid, BOX_SIZE, SIZE) {
+        for (let b = 0; b < SIZE; b += (BOX_SIZE + 1)) {
+            const sr = Math.floor(b / BOX_SIZE) * BOX_SIZE;
+            const sc = (b % BOX_SIZE) * BOX_SIZE;
+            const nums = Array.from({ length: SIZE }, (_, i) => i + 1);
+            GridUtils.shuffle(nums);
+            let idx = 0;
+            for (let r = sr; r < sr + BOX_SIZE; r++)
+                for (let c = sc; c < sc + BOX_SIZE; c++)
+                    grid[r][c] = nums[idx++];
+        }
+    },
+
+    // 检查某个位置放某个数是否合法
+    isValid(grid, row, col, num, BOX_SIZE, SIZE) {
         for (let i = 0; i < SIZE; i++) {
             if (grid[row][i] === num || grid[i][col] === num) return false;
         }
-        const br = Math.floor(row / BOX_SIZE) * BOX_SIZE;
-        const bc = Math.floor(col / BOX_SIZE) * BOX_SIZE;
-        for (let i = br; i < br + BOX_SIZE; i++)
-            for (let j = bc; j < bc + BOX_SIZE; j++)
+        const { r: sr, c: sc } = GridUtils.boxStart(row, col, BOX_SIZE);
+        for (let i = sr; i < sr + BOX_SIZE; i++)
+            for (let j = sc; j < sc + BOX_SIZE; j++)
                 if (grid[i][j] === num) return false;
         return true;
-    }
+    },
 
-    // 优化的 solve 方法：使用约束传播和MRV启发式
-    static solve(grid, BOX_SIZE, SIZE) {
-        let minCandidates = SIZE + 1, targetR = -1, targetC = -1, targetPossible = [];
-        
-        for (let r = 0; r < SIZE; r++) {
-            for (let c = 0; c < SIZE; c++) {
-                if (grid[r][c] === 0) {
-                    let possible = [];
-                    for (let num = 1; num <= SIZE; num++) {
-                        if (SudokuEngine.isValid(grid, r, c, num, BOX_SIZE, SIZE)) {
-                            possible.push(num);
-                        }
-                    }
-                    if (possible.length === 0) return false;
-                    if (possible.length < minCandidates) {
-                        minCandidates = possible.length;
-                        targetR = r;
-                        targetC = c;
-                        targetPossible = possible;
-                    }
-                    // 如果找到只有1个候选数的格子，直接跳出（唯一候选数）
-                    if (minCandidates === 1) break;
-                }
-            }
-            if (minCandidates === 1) break;
-        }
-        
-        if (targetR === -1) return true;
-        
-        // 随机打乱候选数
-        SudokuEngine.shuffle(targetPossible);
-        
-        for (let num of targetPossible) {
-            grid[targetR][targetC] = num;
-            if (SudokuEngine.solve(grid, BOX_SIZE, SIZE)) return true;
-            grid[targetR][targetC] = 0;
-        }
-        return false;
-    }
-
-    // 使用约束满足问题(CSP)的生成方法 - 更快的算法
-    static generateSolution(BOX_SIZE, SIZE) {
-        const grid = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
-        
-        // 初始化每行、每列、每宫的可用数字集合
-        const rowSets = Array.from({ length: SIZE }, () => new Set());
-        const colSets = Array.from({ length: SIZE }, () => new Set());
-        const boxSets = Array.from({ length: SIZE }, () => new Set());
-        
-        // 填充对角线宫格（这些宫互不干扰）
-        const fillBoxFast = (boxIdx) => {
-            const startR = Math.floor(boxIdx / BOX_SIZE) * BOX_SIZE;
-            const startC = (boxIdx % BOX_SIZE) * BOX_SIZE;
-            const nums = Array.from({ length: SIZE }, (_, i) => i + 1);
-            SudokuEngine.shuffle(nums);
-            let idx = 0;
-            for (let i = startR; i < startR + BOX_SIZE; i++) {
-                for (let j = startC; j < startC + BOX_SIZE; j++) {
-                    grid[i][j] = nums[idx];
-                    rowSets[i].add(nums[idx]);
-                    colSets[j].add(nums[idx]);
-                    boxSets[boxIdx].add(nums[idx]);
-                    idx++;
-                }
-            }
-        };
-        
-        // 填充对角线宫格
-        for (let i = 0; i < SIZE; i += BOX_SIZE) {
-            fillBoxFast(i);
-        }
-        
-        // 使用CSP方法填充剩余格子
-        const solveCSP = () => {
-            // 找到候选数最少的空格
-            let minCount = SIZE + 1;
-            let bestR = -1, bestC = -1, bestNums = [];
-            const boxIdx = Math.floor(bestR / BOX_SIZE) * BOX_SIZE + Math.floor(bestC / BOX_SIZE);
-            
-            for (let r = 0; r < SIZE; r++) {
-                for (let c = 0; c < SIZE; c++) {
-                    if (grid[r][c] !== 0) continue;
-                    const bIdx = Math.floor(r / BOX_SIZE) * BOX_SIZE + Math.floor(c / BOX_SIZE);
-                    const available = [];
-                    for (let num = 1; num <= SIZE; num++) {
-                        if (!rowSets[r].has(num) && !colSets[c].has(num) && !boxSets[bIdx].has(num)) {
-                            available.push(num);
-                        }
-                    }
-                    if (available.length === 0) return false;
-                    if (available.length < minCount) {
-                        minCount = available.length;
-                        bestR = r;
-                        bestC = c;
-                        bestNums = available;
-                        if (minCount === 1) break;
-                    }
-                }
-                if (minCount === 1) break;
-            }
-            
-            if (bestR === -1) return true; // 所有格子都已填满
-            
-            const bIdx = Math.floor(bestR / BOX_SIZE) * BOX_SIZE + Math.floor(bestC / BOX_SIZE);
-            SudokuEngine.shuffle(bestNums);
-            
-            for (let num of bestNums) {
-                grid[bestR][bestC] = num;
-                rowSets[bestR].add(num);
-                colSets[bestC].add(num);
-                boxSets[bIdx].add(num);
-                
-                if (solveCSP()) return true;
-                
-                grid[bestR][bestC] = 0;
-                rowSets[bestR].delete(num);
-                colSets[bestC].delete(num);
-                boxSets[bIdx].delete(num);
-            }
-            return false;
-        };
-        
-        solveCSP();
-        return grid;
-    }
-
-    // 优化的谜题创建：确保唯一解（可选）
-    static createPuzzle(solution, blanks) {
-        const puzzle = solution.map(row => [...row]);
-        const positions = [];
-        for (let r = 0; r < puzzle.length; r++)
-            for (let c = 0; c < puzzle.length; c++)
-                positions.push({ r, c });
-        SudokuEngine.shuffle(positions);
-        for (let i = 0; i < blanks; i++) {
-            const { r, c } = positions[i];
-            puzzle[r][c] = 0;
-        }
-        return puzzle;
-    }
-
-    static getLegalCandidates(grid, row, col, BOX_SIZE, SIZE) {
+    // 获取某个格子的候选数
+    getCandidates(grid, row, col, BOX_SIZE, SIZE) {
         if (grid[row][col] !== 0) return [];
         const candidates = [];
         for (let num = 1; num <= SIZE; num++) {
-            if (SudokuEngine.isValid(grid, row, col, num, BOX_SIZE, SIZE)) candidates.push(num);
+            if (GridUtils.isValid(grid, row, col, num, BOX_SIZE, SIZE)) {
+                candidates.push(num);
+            }
         }
         return candidates;
-    }
+    },
 
+    // MRV 回溯求解（直接修改 grid）
+    solve(grid, BOX_SIZE, SIZE) {
+        let minCount = SIZE + 1, bestR = -1, bestC = -1, bestCandidates = [];
+        
+        for (let r = 0; r < SIZE; r++) {
+            for (let c = 0; c < SIZE; c++) {
+                if (grid[r][c] !== 0) continue;
+                const candidates = GridUtils.getCandidates(grid, r, c, BOX_SIZE, SIZE);
+                if (candidates.length === 0) return false;
+                if (candidates.length < minCount) {
+                    minCount = candidates.length;
+                    bestR = r; bestC = c; bestCandidates = candidates;
+                    if (minCount === 1) break;
+                }
+            }
+            if (minCount === 1) break;
+        }
+        
+        if (bestR === -1) return true;
+        
+        GridUtils.shuffle(bestCandidates);
+        
+        for (let num of bestCandidates) {
+            grid[bestR][bestC] = num;
+            if (GridUtils.solve(grid, BOX_SIZE, SIZE)) return true;
+            grid[bestR][bestC] = 0;
+        }
+        return false;
+    },
+
+    // 生成数独
+    generateSolution(BOX_SIZE, SIZE) {
+        for (let attempt = 0; attempt < 10; attempt++) {
+            const grid = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
+            GridUtils.fillDiagonalBoxes(grid, BOX_SIZE, SIZE);
+            if (GridUtils.solve(grid, BOX_SIZE, SIZE)) {
+                if (GridUtils.validate(grid, BOX_SIZE, SIZE)) return grid;
+            }
+        }
+        return Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
+    },
+
+    // 创建谜题（挖空）- 保证每个宫格至少有一个空格，以用户指定数量为准
+    createPuzzle(solution, blanks) {
+        const puzzle = solution.map(row => [...row]);
+        const SIZE = puzzle.length;
+        const BOX_SIZE = Math.sqrt(SIZE);
+        const removed = new Set(); // 记录已挖空的位置
+        
+        // 第一步：每个宫格至少挖 1 个空（硬性要求）
+        for (let b = 0; b < SIZE; b++) {
+            const sr = Math.floor(b / BOX_SIZE) * BOX_SIZE;
+            const sc = (b % BOX_SIZE) * BOX_SIZE;
+            const positions = [];
+            for (let r = sr; r < sr + BOX_SIZE; r++)
+                for (let c = sc; c < sc + BOX_SIZE; c++)
+                    positions.push({ r, c });
+            GridUtils.shuffle(positions);
+            const pos = positions[0];
+            puzzle[pos.r][pos.c] = 0;
+            removed.add(`${pos.r},${pos.c}`);
+        }
+        
+        // 第二步：如果用户指定的数量大于宫格数，随机挖剩余的空
+        if (blanks > SIZE) {
+            const remainingPositions = [];
+            for (let r = 0; r < SIZE; r++)
+                for (let c = 0; c < SIZE; c++)
+                    if (!removed.has(`${r},${c}`)) remainingPositions.push({ r, c });
+            GridUtils.shuffle(remainingPositions);
+            
+            const toRemove = Math.min(blanks - SIZE, remainingPositions.length);
+            for (let i = 0; i < toRemove; i++) {
+                puzzle[remainingPositions[i].r][remainingPositions[i].c] = 0;
+            }
+        }
+        
+        return puzzle;
+    },
+
+    // 查找一组格子中的重复值及其位置
+    findDuplicates(grid, coords, ...args) {
+        const posMap = {};
+        GridUtils.each(grid, coords, (val, r, c) => {
+            if (val === 0) return false;
+            if (!posMap[val]) posMap[val] = [];
+            posMap[val].push({ r, c });
+            return false;
+        }, ...args);
+        const conflicts = [], duplicateValues = [];
+        for (let val in posMap) {
+            if (posMap[val].length > 1) {
+                conflicts.push(...posMap[val]);
+                duplicateValues.push(Number(val));
+            }
+        }
+        return { conflicts, duplicateValues };
+    }
+};
+
+// 兼容旧代码的 SudokuEngine 类
+export class SudokuEngine {
+    static generateSolution(BOX_SIZE, SIZE) { return GridUtils.generateSolution(BOX_SIZE, SIZE); }
+    static createPuzzle(solution, blanks) { return GridUtils.createPuzzle(solution, blanks); }
+    static getLegalCandidates(grid, row, col, BOX_SIZE, SIZE) { return GridUtils.getCandidates(grid, row, col, BOX_SIZE, SIZE); }
     static checkRegion(grid, r1, c1, r2, c2) {
         const startR = Math.min(r1, r2) - 1, endR = Math.max(r1, r2) - 1;
         const startC = Math.min(c1, c2) - 1, endC = Math.max(c1, c2) - 1;
-        const values = []; const posMap = {};
-        for (let r = startR; r <= endR; r++) {
-            for (let c = startC; c <= endC; c++) {
-                const val = grid[r][c];
-                if (val === 0) continue;
-                values.push(val);
-                if (!posMap[val]) posMap[val] = [];
-                posMap[val].push({ r, c });
-            }
-        }
-        if (new Set(values).size < values.length) {
-            const conflicts = []; const duplicateValues = [];
-            for (let val in posMap) {
-                if (posMap[val].length > 1) {
-                    conflicts.push(...posMap[val]);
-                    duplicateValues.push(Number(val));
-                }
-            }
-            return { conflicts, duplicateValues };
-        }
-        return { conflicts: [], duplicateValues: [] };
+        return GridUtils.findDuplicates(grid, GridUtils.rectCoords, startR, startC, endR, endC);
     }
 }

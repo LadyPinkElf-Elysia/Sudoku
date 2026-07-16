@@ -9,7 +9,8 @@ import { SudokuRenderer } from './util/SudokuRenderer.js';
 let sudokuWorker = null;
 const getWorker = () => {
     if (!sudokuWorker) {
-        sudokuWorker = new Worker('./util/SudokuWorker.js', { type: 'module' });
+        // 添加时间戳避免缓存
+        sudokuWorker = new Worker(`./util/SudokuWorker.js?t=${Date.now()}`, { type: 'module' });
     }
     return sudokuWorker;
 };
@@ -98,6 +99,12 @@ const app = createApp({
                         if(canvas) { canvas.removeEventListener('click', this.onCanvasClick); canvas.addEventListener('click', this.onCanvasClick); }
                         this.renderCanvas();
                     });
+                } else if (e.data.type === 'generateError') {
+                    console.error('Worker generation error:', e.data.error);
+                    this.game.isGenerating = false;
+                    worker.removeEventListener('message', handleMessage);
+                    worker.removeEventListener('error', handleError);
+                    this._generateSynchronous();
                 }
             };
             
@@ -140,6 +147,7 @@ const app = createApp({
             });
         },
         resetGame() {
+            if (this.game.isGenerating) return;
             this.game.started = false;
             this.game.hintMessage = '';
             const canvas = document.getElementById('sudokuCanvas');
