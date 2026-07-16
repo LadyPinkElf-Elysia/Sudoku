@@ -1,6 +1,7 @@
 {
     "version": 1,
-    "include": ["/api/*"],
-    "exclude": [],
-    "methods": ["GET", "POST", "OPTIONS"]
+    "include": [
+        { "pattern": "/api/*", "methods": ["GET", "POST", "OPTIONS"] }
+    ],
+    "exclude": []
 }
