@@ -61,12 +61,12 @@ export class PuzzleStorage {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    user_id: userId,
+                    userId,
                     username,
                     puzzle: JSON.stringify(puzzle),
                     solution: JSON.stringify(solution),
-                    size: SIZE,
-                    box_size: BOX_SIZE,
+                    SIZE,
+                    BOX_SIZE,
                     title: title || ''
                 })
             });
