@@ -27,7 +27,7 @@ const app = createApp({
             viewUserId: null,
             createPuzzleMode: 'edit',
             puzzleTitle: '',
-            boxSize: 3,
+            createBoxSize: 3,
             createMessage: '',
             createBoard: [],
             createGameBoard: [],
@@ -51,8 +51,8 @@ const app = createApp({
         blanksRange() { return FormatUtils.calcBlanksRange(this.config.boxSize); },
         boxSize() { return this.config.boxSize; },
         size() { return this.config.boxSize * this.config.boxSize; },
-        createBoxSize() { return this.boxSize; },
-        createSize() { return this.boxSize * this.boxSize; }
+        createBoxSize() { return this.createBoxSize; },
+        createSize() { return this.createBoxSize * this.createBoxSize; }
     },
     watch: {
         'config.boxSize'(val) {
@@ -86,7 +86,7 @@ const app = createApp({
         _resetCreateState() {
             this.createPuzzleMode = 'edit';
             this.puzzleTitle = '';
-            this.boxSize = 3;
+            this.createBoxSize = 3;
             this.createMessage = '';
             this.createBoard = [];
             this.createGameBoard = [];
@@ -145,7 +145,7 @@ const app = createApp({
             this._resetCreateState();
             const parsed = this._parsePuzzleStr(puzzle);
             if (Array.isArray(parsed) && parsed.length > 0) {
-                this.boxSize = Math.round(Math.sqrt(parsed.length));
+                this.createBoxSize = Math.round(Math.sqrt(parsed.length));
                 this.puzzleTitle = puzzle.title || '';
                 this.createBoard = parsed.map(row => [...row]);
                 this.submittedPuzzleId = puzzle.id;
