@@ -51,7 +51,7 @@ export const MainMenuComponent = {
     props: {
         currentUser: { type: Object, required: true }
     },
-    emits: ['startSystemGame', 'startRandomUserPuzzle', 'createPuzzle', 'myPuzzles', 'searchPuzzles', 'logout'],
+    emits: ['startSystemGame', 'startRandomUserPuzzle', 'createPuzzle', 'myPuzzles', 'searchPuzzles', 'logout', 'randomPuzzleError'],
     computed: {
         isGuest() { return this.currentUser && this.currentUser.isGuest; }
     },

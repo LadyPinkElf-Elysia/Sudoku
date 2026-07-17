@@ -1,7 +1,4 @@
-// MyPuzzlesComponent.js - 我的题目面板
-import { PuzzleStorage } from '../api.js';
-import { FormatUtils } from '../util/FormatUtils.js';
-
+// MyPuzzlesComponent.js - 我的题目面板（纯 UI 层，API 调用由父组件处理）
 export const MyPuzzlesComponent = {
     template: `
         <div class="panel">
@@ -38,7 +35,7 @@ export const MyPuzzlesComponent = {
                     </div>
 
                     <div class="card-actions" v-if="!isReadonly">
-                        <button class="btn btn-secondary btn-sm" @click="editPuzzle(puzzle)">✏️ 修改</button>
+                        <button class="btn btn-secondary btn-sm" @click="$emit('editPuzzle', puzzle)">✏️ 修改</button>
                     </div>
                 </div>
             </div>
@@ -46,42 +43,13 @@ export const MyPuzzlesComponent = {
     `,
     props: {
         currentUser: { type: Object, required: true },
-        viewUserId: { type: Number, default: null }
+        viewUserId: { type: Number, default: null },
+        puzzles: { type: Array, default: () => [] },
+        message: { type: String, default: '' },
+        loading: { type: Boolean, default: false }
     },
     emits: ['back', 'editPuzzle'],
     computed: {
-        isReadonly() { return this.viewUserId !== null && this.viewUserId !== this.currentUser.id; },
-        targetUserId() { return this.isReadonly ? this.viewUserId : this.currentUser.id; }
-    },
-    data() {
-        return {
-            puzzles: [],
-            message: '',
-            loading: true
-        };
-    },
-    methods: {
-        async loadPuzzles() {
-            this.loading = true;
-            this.puzzles = await PuzzleStorage.getByUser(this.targetUserId);
-            
-            // 加载每个题目的统计
-            for (const puzzle of this.puzzles) {
-                const stats = await PuzzleStorage.getStats(puzzle.id);
-                puzzle.stats = FormatUtils.formatStats(stats);
-            }
-            this.loading = false;
-        },
-        editPuzzle(puzzle) {
-            // 如果有挑战数据，确认是否要修改
-            if (puzzle.stats && puzzle.stats.totalChallenges > 0) {
-                const confirmMsg = `⚠️ 此题目已有 ${puzzle.stats.totalChallenges} 人挑战，${puzzle.stats.completedChallenges} 人通过。\n\n修改后所有挑战数据将被重置，请谨慎操作！\n\n确定要修改吗？`;
-                if (!confirm(confirmMsg)) return;
-            }
-            this.$emit('editPuzzle', puzzle);
-        }
-    },
-    async mounted() {
-        await this.loadPuzzles();
+        isReadonly() { return this.viewUserId !== null && this.viewUserId !== this.currentUser.id; }
     }
 };

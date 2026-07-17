@@ -1,6 +1,4 @@
 // ConfigComponent.js - 游戏配置组件
-import { GameStateManager } from '../util/GameStateManager.js';
-
 export const ConfigComponent = {
     template: `
         <div class="panel">
@@ -49,21 +47,18 @@ export const ConfigComponent = {
     methods: {
         onNChange(e) {
             const val = parseInt(e.target.value) || this.config.NMin;
-            const validated = GameStateManager.validateN(val, this.config.NMin, this.config.NMax);
-            this.$emit('update:config', { ...this.config, N: validated });
+            this.$emit('update:config', { ...this.config, N: Math.max(this.config.NMin, Math.min(this.config.NMax, val)) });
         },
         onBlanksChange(e) {
             const val = parseInt(e.target.value) || this.minBlanks;
-            const validated = GameStateManager.validateBlanks(val, this.minBlanks, this.maxBlanks);
-            this.$emit('update:config', { ...this.config, blanks: validated });
+            this.$emit('update:config', { ...this.config, blanks: Math.max(this.minBlanks, Math.min(this.maxBlanks, val)) });
         },
         onModeChange(e) {
             this.$emit('update:config', { ...this.config, mode: e.target.value });
         },
         onErrorLimitChange(e) {
             const val = parseInt(e.target.value) || this.config.errorLimitMin;
-            const validated = GameStateManager.validateBlanks(val, this.config.errorLimitMin, this.config.errorLimitMax);
-            this.$emit('update:config', { ...this.config, errorLimit: validated });
+            this.$emit('update:config', { ...this.config, errorLimit: Math.max(this.config.errorLimitMin, Math.min(this.config.errorLimitMax, val)) });
         },
         onStart() {
             this.$emit('start');

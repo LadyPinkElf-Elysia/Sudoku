@@ -1,5 +1,5 @@
 // SudokuGameHelper.js - 游戏辅助功能（含历史记录管理）
-import { SudokuGridHelper, GridUtils } from './util/SudokuGrid.js';
+import { SudokuGridHelper, GridUtils } from './SudokuGrid.js';
 
 export class SudokuGameHelper {
     // ===== 历史记录管理 =====
@@ -21,7 +21,7 @@ export class SudokuGameHelper {
     }
 
     // 应用历史记录（恢复完整单元格状态：value + editable）
-    static applyHistory(board, snapshot, SIZE, BOX_SIZE) {
+    static applyHistory(board, snapshot, BOX_SIZE, SIZE) {
         for (let r = 0; r < SIZE; r++) {
             for (let c = 0; c < SIZE; c++) {
                 board[r][c].value = snapshot[r][c].value;
@@ -29,7 +29,7 @@ export class SudokuGameHelper {
                 board[r][c].conflict = false;
             }
         }
-        return SudokuGameHelper.refreshAllConflicts(board, SIZE, BOX_SIZE);
+        return SudokuGameHelper.refreshAllConflicts(board, BOX_SIZE, SIZE);
     }
 
     // ===== 冲突管理 =====
@@ -56,7 +56,7 @@ export class SudokuGameHelper {
     }
 
     // 刷新所有冲突
-    static refreshAllConflicts(board, SIZE, BOX_SIZE) {
+    static refreshAllConflicts(board, BOX_SIZE, SIZE) {
         const grid = SudokuGridHelper.getGridSnapshot(board);
         const conflictMap = Array.from({ length: SIZE }, () => Array(SIZE).fill(false));
         const messages = [];
@@ -95,9 +95,9 @@ export class SudokuGameHelper {
     }
 
     // 历史导航
-    static navigateHistory(board, historyMap, targetStep, SIZE, BOX_SIZE) {
+    static navigateHistory(board, historyMap, targetStep, BOX_SIZE, SIZE) {
         if (!historyMap[targetStep]) return null;
-        const result = SudokuGameHelper.applyHistory(board, historyMap[targetStep], SIZE, BOX_SIZE);
+        const result = SudokuGameHelper.applyHistory(board, historyMap[targetStep], BOX_SIZE, SIZE);
         return { messages: result.messages };
     }
 

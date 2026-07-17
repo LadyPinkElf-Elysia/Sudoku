@@ -1,6 +1,4 @@
-// GameComponent.js - 游戏组件
-import { SudokuGameHelper } from '../SudokuGameHelper.js';
-import { GameStateManager } from '../util/GameStateManager.js';
+// GameComponent.js - 游戏组件（纯 UI 层，所有操作 emit 给父组件）
 import { FormatUtils } from '../util/FormatUtils.js';
 import { BoardMixin } from '../util/BoardMixin.js';
 
@@ -94,7 +92,12 @@ export const GameComponent = {
         historyMap: { type: Object, default: () => ({}) },
         stepPointer: { type: Number, default: -1 }
     },
-    emits: ['back', 'reset', 'update:game', 'update:historyMap', 'update:stepPointer'],
+    emits: [
+        'back', 'reset',
+        'update:game', 'update:historyMap', 'update:stepPointer',
+        'input-number', 'clear-selected', 'undo', 'redo', 'move-pointer', 'give-hint',
+        'cell-click'
+    ],
     computed: {
         formattedTime() {
             if (!this.game.startTime) return '00:00';
@@ -103,64 +106,29 @@ export const GameComponent = {
         }
     },
     methods: {
-        // ===== BoardMixin 实现 =====
+        // ===== BoardMixin 实现（只读，不修改数据） =====
         _getBoard() { return this.game.board; },
         _getGameState() { return this.game; },
         _getSelectedRow() { return this.game.selectedRow; },
         _getSelectedCol() { return this.game.selectedCol; },
         _onCellClick(row, col) {
-            this.$emit('update:game', { ...this.game, selectedRow: row, selectedCol: col, hintMessage: '' });
-            this.$nextTick(() => this._renderBoard());
+            this.$emit('cell-click', row, col);
         },
         _onInputNumber(num) { this.inputNumber(num); },
         _onClearSelected() { this.clearSelected(); },
-        _onHistoryNavigate(messages) {
-            this.$emit('update:game', { ...this.game, conflictMessages: messages, selectedRow: null, selectedCol: null, hintMessage: '' });
-        },
-        _onSaveState(newHistoryMap, newStepPointer) {
-            this.$emit('update:historyMap', newHistoryMap);
-            this.$emit('update:stepPointer', newStepPointer);
-        },
-        _onMovePointer(targetStep) {
-            this.$emit('update:stepPointer', targetStep);
-            const result = SudokuGameHelper.navigateHistory(this._getBoard(), this.historyMap, targetStep, this.size, this.boxSize);
-            if (result) {
-                this._onHistoryNavigate(result.messages);
-                this.$nextTick(() => this._renderBoard());
-            }
-        },
+        _onHistoryNavigate() { this.$nextTick(() => this._renderBoard()); },
+        _onSaveState() {},
+        _onMovePointer() {},
+        _onUndo() { this.undo(); },
+        _onRedo() { this.redo(); },
 
-        // ===== 游戏操作 =====
-        inputNumber(num) {
-            this._operateCell(cell => { cell.value = (cell.value === num) ? 0 : num; });
-        },
-        clearSelected() {
-            this._operateCell(cell => { cell.value = 0; });
-        },
-        _operateCell(updateFn) {
-            const result = GameStateManager.operateCell(this.game, this.config, this.game.selectedRow, this.game.selectedCol, updateFn, {
-                historyMap: this.historyMap,
-                stepPointer: this.stepPointer
-            });
-            if (!result) return;
-            this.$emit('update:historyMap', result.newHistoryMap);
-            this.$emit('update:stepPointer', result.newStepPointer);
-            this.$emit('update:game', result.newGame);
-            this.$nextTick(() => this._renderBoard());
-        },
-
-        // ===== 历史 =====
-        undo() { this._onUndo(); },
-        redo() { this._onRedo(); },
-        movePointer(targetStep) { this._movePointer(targetStep); },
-
-        // ===== 提示 =====
-        giveHint() {
-            if (this.game.isGenerating || this.game.hintsRemaining === 0) return;
-            const msg = SudokuGameHelper.getHintMessage(this.game.board, this.game.selectedRow, this.game.selectedCol, this.boxSize, this.size);
-            const newHints = this.game.hintsRemaining > 0 ? this.game.hintsRemaining - 1 : this.game.hintsRemaining;
-            this.$emit('update:game', { ...this.game, hintMessage: msg, hintsRemaining: newHints });
-        }
+        // ===== 用户操作 → emit 给父组件 =====
+        inputNumber(num) { this.$emit('input-number', num); },
+        clearSelected() { this.$emit('clear-selected'); },
+        undo() { this.$emit('undo'); },
+        redo() { this.$emit('redo'); },
+        movePointer(step) { this.$emit('move-pointer', step); },
+        giveHint() { this.$emit('give-hint'); }
     },
     watch: {
         game: {

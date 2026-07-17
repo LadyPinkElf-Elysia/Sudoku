@@ -10,14 +10,23 @@
 <body>
     <div id="app" v-cloak>
         <!-- 登录页 -->
-        <login-component v-if="page === 'login'" @login="onLogin"></login-component>
+        <login-component 
+            v-if="page === 'login'" 
+            :message="loginMessage"
+            @login="onDoLogin"
+            @register="onDoRegister"
+            @guest="onGuestLogin"
+            @login-error="loginMessage = $event"
+            @register-error="loginMessage = $event"
+        ></login-component>
         
         <!-- 主菜单 -->
         <main-menu-component 
             v-if="page === 'mainMenu'" 
             :current-user="currentUser"
-            @start-system-game="startSystemGame"
+            @start-system-game="goToPage(Pages.CONFIG)"
             @start-random-user-puzzle="startRandomUserPuzzle"
+            @random-puzzle-error="alert($event)"
             @create-puzzle="goToCreatePuzzle"
             @my-puzzles="goToMyPuzzles"
             @search-puzzles="goToSearchPuzzles"
@@ -28,28 +37,57 @@
         <config-component 
             v-if="page === 'config'"
             :config="config"
-            :min-blanks="minBlanks"
-            :max-blanks="maxBlanks"
+            :min-blanks="blanksRange.min"
+            :max-blanks="blanksRange.max"
             @start="startFromConfig"
             @back="goToMainMenu"
-            @update:config="updateConfig"
+            @update:config="config = $event"
         ></config-component>
         
         <!-- 出题 -->
         <create-puzzle-component 
             v-if="page === 'createPuzzle'"
             :current-user="currentUser"
-            :edit-puzzle-data="editPuzzleData"
+            :create-puzzle-mode="createPuzzleMode"
+            :puzzle-title="puzzleTitle"
+            :puzzle-n="puzzleN"
+            :create-message="createMessage"
+            :board="createBoard"
+            :game-board="createGameBoard"
+            :selected-row="createSelectedRow"
+            :selected-col="createSelectedCol"
+            :history-map="createHistoryMap"
+            :step-pointer="createStepPointer"
+            :show-victory="createShowVictory"
+            :stats="createStats"
+            :zoom="zoom"
             @back="goToMainMenu"
-            @saved="goToMyPuzzles"
+            @update:puzzle-n="puzzleN = $event"
+            @update:puzzle-title="puzzleTitle = $event"
+            @cell-click="onCreateCellClick"
+            @input-number="onCreateInputNumber"
+            @clear-selected="onCreateClearSelected"
+            @undo="onCreateUndo"
+            @redo="onCreateRedo"
+            @clear-board="onCreateClearBoard"
+            @start-solving="onCreateStartSolving"
+            @back-to-edit="onCreateBackToEdit"
+            @submit-puzzle="onCreateSubmitPuzzle"
+            @submit-error="createMessage = $event"
         ></create-puzzle-component>
         
         <!-- 搜索题目 -->
         <search-puzzles-component 
             v-if="page === 'searchPuzzles'"
+            :search-query="searchQuery"
+            :search-results="searchResults"
+            :message="searchMessage"
             @back="goToMainMenu"
             @start-puzzle="startUserPuzzle"
+            @start-puzzle-error="alert($event)"
             @view-user-puzzles="viewUserPuzzles"
+            @search="onSearch"
+            @update:search-query="searchQuery = $event"
         ></search-puzzles-component>
         
         <!-- 我的题目 -->
@@ -57,6 +95,9 @@
             v-if="page === 'myPuzzles'"
             :current-user="currentUser"
             :view-user-id="viewUserId"
+            :puzzles="myPuzzles"
+            :message="myPuzzlesMessage"
+            :loading="myPuzzlesLoading"
             @back="goToMainMenu"
             @edit-puzzle="editPuzzle"
         ></my-puzzles-component>
@@ -71,10 +112,17 @@
             :zoom="zoom"
             @back="goToMainMenu"
             @reset="resetGame"
-            @update:game="updateGame"
-            @update:history-map="updateHistoryMap"
-            @update:step-pointer="updateStepPointer"
-            @update:zoom="updateZoom"
+            @update:game="game = $event"
+            @update:history-map="historyMap = $event"
+            @update:step-pointer="stepPointer = $event"
+            @update:zoom="zoom = $event"
+            @cell-click="onCellClick"
+            @input-number="onInputNumber"
+            @clear-selected="onClearSelected"
+            @undo="onUndo"
+            @redo="onRedo"
+            @move-pointer="_movePointer"
+            @give-hint="onGiveHint"
         ></game-component>
     </div>
     <script type="module" src="main.js"></script>

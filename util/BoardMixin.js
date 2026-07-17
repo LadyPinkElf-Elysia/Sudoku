@@ -1,5 +1,5 @@
 // BoardMixin.js - 棋盘组件通用逻辑（缩放、Canvas、键盘、历史）
-import { SudokuGameHelper } from '../SudokuGameHelper.js';
+import { SudokuGameHelper } from './SudokuGameHelper.js';
 import { handleSudokuKeyDown } from './SudokuRenderer.js';
 import { CanvasBoard } from './CanvasBoard.js';
 
@@ -67,8 +67,8 @@ export const BoardMixin = {
                 inputNumber: (num) => this._onInputNumber(num),
                 clearSelected: () => this._onClearSelected(),
                 selectCell: (r, c) => this._onCellClick(r, c),
-                undo: () => this._onUndo(),
-                redo: () => this._onRedo()
+                undo: () => this.undo ? this.undo() : this._onUndo(),
+                redo: () => this.redo ? this.redo() : this._onRedo()
             });
         },
 
@@ -77,11 +77,8 @@ export const BoardMixin = {
             const result = SudokuGameHelper.saveState(this.historyMap, this.stepPointer, this._getBoard());
             this._onSaveState(result.newHistoryMap, result.newStepPointer);
         },
-        _movePointer(targetStep) {
-            this._onMovePointer(targetStep);
-        },
-        _onUndo() { if (this.stepPointer > 0) this._movePointer(this.stepPointer - 1); },
-        _onRedo() { if (this.historyMap[this.stepPointer + 1]) this._movePointer(this.stepPointer + 1); },
+        _onUndo() { if (this.stepPointer > 0) this._onMovePointer(this.stepPointer - 1); },
+        _onRedo() { if (this.historyMap[this.stepPointer + 1]) this._onMovePointer(this.stepPointer + 1); },
 
         // ===== 子类需实现的方法 =====
         _getBoard() { return []; },

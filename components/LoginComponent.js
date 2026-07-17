@@ -1,6 +1,4 @@
-// LoginComponent.js - 登录/注册组件
-import { UserSystem } from '../api.js';
-
+// LoginComponent.js - 登录/注册组件（纯 UI 层，API 调用由父组件处理）
 export const LoginComponent = {
     template: `
         <div class="auth-panel">
@@ -39,55 +37,39 @@ export const LoginComponent = {
                 <span>或</span>
             </div>
             
-            <button class="btn btn-secondary btn-block" @click="guestLogin">👤 游客模式</button>
+            <button class="btn btn-secondary btn-block" @click="$emit('guest')">👤 游客模式</button>
             <p class="guest-hint">游客可以搜索和挑战题目，但不能出题</p>
             
             <div v-if="message" class="auth-message" :class="{ success: message.includes('成功') }">{{ message }}</div>
         </div>
     `,
+    props: {
+        message: { type: String, default: '' }
+    },
+    emits: ['login', 'register', 'guest', 'login-error', 'register-error'],
     data() {
         return {
             authTab: 'login',
             loginUsername: '',
             loginPassword: '',
             registerUsername: '',
-            registerPassword: '',
-            message: ''
+            registerPassword: ''
         };
     },
     methods: {
-        async doLogin() {
+        doLogin() {
             if (!this.loginUsername || !this.loginPassword) {
-                this.message = '请输入用户名和密码';
+                this.$emit('login-error', '请输入用户名和密码');
                 return;
             }
-            this.message = '登录中...';
-            const result = await UserSystem.login(this.loginUsername, this.loginPassword);
-            if (result.success) {
-                this.message = '';
-                this.$emit('login', result.user);
-            } else {
-                this.message = result.message;
-            }
+            this.$emit('login', { username: this.loginUsername, password: this.loginPassword });
         },
-        async doRegister() {
+        doRegister() {
             if (!this.registerUsername || !this.registerPassword) {
-                this.message = '请输入用户名和密码';
+                this.$emit('register-error', '请输入用户名和密码');
                 return;
             }
-            this.message = '注册中...';
-            const result = await UserSystem.register(this.registerUsername, this.registerPassword);
-            if (result.success) {
-                this.message = `注册成功！您的ID是 ${result.user.id}`;
-                setTimeout(() => {
-                    this.$emit('login', result.user);
-                }, 1000);
-            } else {
-                this.message = result.message || '注册失败，请重试';
-            }
-        },
-        guestLogin() {
-            this.$emit('login', { id: -1, username: '游客', isGuest: true });
+            this.$emit('register', { username: this.registerUsername, password: this.registerPassword });
         }
     }
 };

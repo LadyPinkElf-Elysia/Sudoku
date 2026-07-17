@@ -1,7 +1,4 @@
-// CreatePuzzleComponent.js - 出题组件（先出题再解题）
-import { SudokuGameHelper } from '../SudokuGameHelper.js';
-import { PuzzleStorage } from '../api.js';
-import { SudokuGridHelper } from '../util/SudokuGrid.js';
+// CreatePuzzleComponent.js - 出题组件（纯 UI 层，所有操作 emit 给父组件）
 import { FormatUtils } from '../util/FormatUtils.js';
 import { BoardMixin } from '../util/BoardMixin.js';
 
@@ -11,21 +8,21 @@ export const CreatePuzzleComponent = {
         <div class="panel">
             <div class="config-header">
                 <button class="btn btn-secondary btn-sm" @click="$emit('back')">← 返回</button>
-                <h2>✏️ {{ mode === 'edit' ? '出题 - 点击格子输入数字' : '🧩 解题' }}</h2>
+                <h2>✏️ {{ createPuzzleMode === 'edit' ? '出题 - 点击格子输入数字' : '🧩 解题' }}</h2>
             </div>
             
-            <div v-if="mode === 'edit'" class="config-item">
+            <div v-if="createPuzzleMode === 'edit'" class="config-item">
                 <label>宫格大小 N:</label>
                 <div class="input-group">
-                    <input type="number" v-model.number="puzzleN" :min="2" :max="6" @change="initBoard">
+                    <input type="number" :value="puzzleN" :min="2" :max="6" @change="$emit('update:puzzleN', parseInt($event.target.value) || 3)">
                     <span class="hint">{{ size }} x {{ size }} 的棋盘</span>
                 </div>
             </div>
             
-            <div v-if="mode === 'edit'" class="config-item">
+            <div v-if="createPuzzleMode === 'edit'" class="config-item">
                 <label>题目标题（可选）:</label>
                 <div class="input-group">
-                    <input type="text" v-model="puzzleTitle" placeholder="给题目起个名字" style="width:100%;max-width:300px;">
+                    <input type="text" :value="puzzleTitle" @input="$emit('update:puzzleTitle', $event.target.value)" placeholder="给题目起个名字" style="width:100%;max-width:300px;">
                 </div>
             </div>
 
@@ -59,50 +56,49 @@ export const CreatePuzzleComponent = {
                 </div>
             </div>
             
-            <div v-if="mode === 'edit'" class="create-actions">
-                <button class="btn btn-secondary" @click="fillExample">填入示例</button>
-                <button class="btn btn-secondary" @click="clearBoard">清空</button>
-                <button class="btn btn-primary" @click="startSolving" :disabled="!hasPuzzle">✅ 开始解题</button>
+            <div v-if="createPuzzleMode === 'edit'" class="create-actions">
+                <button class="btn btn-secondary" @click="$emit('clear-board')">清空</button>
+                <button class="btn btn-primary" @click="$emit('start-solving')" :disabled="!hasPuzzle">✅ 开始解题</button>
             </div>
             <div v-else class="create-actions">
-                <button class="btn btn-secondary" @click="mode = 'edit'">← 返回修改题目</button>
+                <button class="btn btn-secondary" @click="$emit('back-to-edit')">← 返回修改题目</button>
                 <button class="btn btn-primary" @click="submitPuzzle" :disabled="!isComplete">📤 提交题目</button>
             </div>
             
-            <div v-if="message" class="auth-message" :class="{ success: message.includes('成功') || message.includes('通过') }">{{ message }}</div>
+            <div v-if="createMessage" class="auth-message" :class="{ success: createMessage.includes('成功') || createMessage.includes('通过') }">{{ createMessage }}</div>
             
             <div class="victory-overlay" v-if="showVictory">
                 <div class="victory-dialog">
                     <h3>🎉 恭喜完成！</h3>
                     <p>你成功解开了自己出的数独！</p>
                     <button class="btn btn-primary" @click="submitPuzzle">📤 提交题目</button>
-                    <button class="btn btn-secondary" style="margin-top:8px;" @click="mode = 'edit'">返回修改</button>
+                    <button class="btn btn-secondary" style="margin-top:8px;" @click="$emit('back-to-edit')">返回修改</button>
                 </div>
             </div>
         </div>
     `,
     props: {
         currentUser: { type: Object, required: true },
-        editPuzzleData: { type: Object, default: null }
+        createPuzzleMode: { type: String, default: 'edit' },
+        puzzleTitle: { type: String, default: '' },
+        puzzleN: { type: Number, default: 3 },
+        createMessage: { type: String, default: '' },
+        board: { type: Array, default: () => [] },
+        gameBoard: { type: Array, default: () => [] },
+        selectedRow: { type: Number, default: null },
+        selectedCol: { type: Number, default: null },
+        historyMap: { type: Object, default: () => ({}) },
+        stepPointer: { type: Number, default: -1 },
+        showVictory: { type: Boolean, default: false },
+        stats: { type: Object, default: null }
     },
-    emits: ['back', 'saved'],
-    data() {
-        return {
-            mode: 'edit',
-            puzzleTitle: '',
-            puzzleN: 3,
-            message: '',
-            board: [],
-            gameBoard: [],
-            selectedRow: null,
-            selectedCol: null,
-            historyMap: {},
-            stepPointer: -1,
-            showVictory: false,
-            stats: null,
-            submittedPuzzleId: null
-        };
-    },
+    emits: [
+        'back', 'saved',
+        'update:puzzleN', 'update:puzzleTitle',
+        'cell-click', 'input-number', 'clear-selected', 'undo', 'redo',
+        'clear-board', 'start-solving', 'back-to-edit',
+        'submit-puzzle', 'submit-error'
+    ],
     computed: {
         hasPuzzle() {
             if (!this.board.length) return false;
@@ -110,16 +106,16 @@ export const CreatePuzzleComponent = {
         },
         isComplete() {
             if (!this.gameBoard.length) return false;
-            return SudokuGridHelper.checkComplete(this.gameBoard, this.size);
+            return this.gameBoard.every(row => row.every(cell => cell.value > 0 && !cell.conflict));
         },
         passRate() {
             return FormatUtils.calcPassRate(this.stats);
         }
     },
     methods: {
-        // ===== BoardMixin 实现 =====
+        // ===== BoardMixin 实现（只读，不修改数据） =====
         _getBoard() {
-            if (this.mode === 'edit') {
+            if (this.createPuzzleMode === 'edit') {
                 return this.board.map(row => row.map(v => ({ value: v, editable: true, conflict: false, given: false })));
             }
             return this.gameBoard;
@@ -127,190 +123,43 @@ export const CreatePuzzleComponent = {
         _getSelectedRow() { return this.selectedRow; },
         _getSelectedCol() { return this.selectedCol; },
         _onCellClick(row, col) {
-            if (this.mode === 'solve' && this.gameBoard[row][col].given) return;
-            this.selectedRow = row;
-            this.selectedCol = col;
-            this._renderBoard();
+            this.$emit('cell-click', row, col);
         },
         _onInputNumber(num) { this.inputNumber(num); },
         _onClearSelected() { this.clearSelected(); },
-        _onHistoryNavigate() { this._renderBoard(); },
-        _onSaveState(newHistoryMap, newStepPointer) {
-            this.historyMap = newHistoryMap;
-            this.stepPointer = newStepPointer;
-        },
-        _onMovePointer(targetStep) {
-            this.stepPointer = targetStep;
-            const result = SudokuGameHelper.navigateHistory(this._getBoard(), this.historyMap, targetStep, this.size, this.boxSize);
-            if (result) {
-                this._onHistoryNavigate(result.messages);
-                this.$nextTick(() => this._renderBoard());
-            }
-        },
+        _onHistoryNavigate() { this.$nextTick(() => this._renderBoard()); },
+        _onSaveState() {},
+        _onMovePointer() {},
+        _onUndo() { this.undo(); },
+        _onRedo() { this.redo(); },
 
-        // ===== 初始化 =====
-        initBoard() {
-            const size = this.size;
-            this.board = Array.from({ length: size }, () => Array(size).fill(0));
-            this.selectedRow = null;
-            this.selectedCol = null;
-            this.mode = 'edit';
-            this.showVictory = false;
-            this.stats = null;
-            this.submittedPuzzleId = null;
-            this.historyMap = {};
-            this.stepPointer = -1;
-            this._renderBoard();
-        },
-
-        // ===== 输入操作 =====
-        inputNumber(num) {
-            if (this.selectedRow === null || this.selectedCol === null) return;
-            const r = this.selectedRow, c = this.selectedCol;
-            
-            if (this.mode === 'edit') {
-                this.board[r][c] = (this.board[r][c] === num) ? 0 : num;
-            } else {
-                if (this.gameBoard[r][c].given) return;
-                this._saveState();
-                this.gameBoard[r][c].value = (this.gameBoard[r][c].value === num) ? 0 : num;
-                this.gameBoard[r][c].conflict = false;
-                SudokuGridHelper.updateConflictsLocal(this.gameBoard, r, c, this.boxSize, this.size);
-                if (SudokuGridHelper.checkComplete(this.gameBoard, this.size)) {
-                    this.showVictory = true;
-                }
-            }
-            this._renderBoard();
-        },
-        clearSelected() {
-            if (this.selectedRow === null || this.selectedCol === null) return;
-            const r = this.selectedRow, c = this.selectedCol;
-            if (this.mode === 'edit') {
-                this.board[r][c] = 0;
-            } else {
-                if (this.gameBoard[r][c].given) return;
-                this._saveState();
-                this.gameBoard[r][c].value = 0;
-                this.gameBoard[r][c].conflict = false;
-            }
-            this._renderBoard();
-        },
-
-        // ===== 编辑操作 =====
-        clearBoard() {
-            const size = this.size;
-            this.board = Array.from({ length: size }, () => Array(size).fill(0));
-            this.selectedRow = null;
-            this.selectedCol = null;
-            this.mode = 'edit';
-            this.showVictory = false;
-            this._renderBoard();
-        },
-        fillExample() {
-            this.puzzleN = 3;
-            this.initBoard();
-            const example = [
-                [5,3,0,0,7,0,0,0,0],
-                [6,0,0,1,9,5,0,0,0],
-                [0,9,8,0,0,0,0,6,0],
-                [8,0,0,0,6,0,0,0,3],
-                [4,0,0,8,0,3,0,0,1],
-                [7,0,0,0,2,0,0,0,6],
-                [0,6,0,0,0,0,2,8,0],
-                [0,0,0,4,1,9,0,0,5],
-                [0,0,0,0,8,0,0,7,9]
-            ];
-            this.board = example.map(row => [...row]);
-            this._renderBoard();
-        },
-        startSolving() {
-            this.gameBoard = this.board.map(row =>
-                row.map(v => ({
-                    value: v,
-                    editable: v === 0,
-                    conflict: false,
-                    given: v !== 0
-                }))
-            );
-            this.historyMap = {};
-            this.stepPointer = -1;
-            this.selectedRow = null;
-            this.selectedCol = null;
-            this.showVictory = false;
-            this.mode = 'solve';
-            this._renderBoard();
-        },
-
-        // ===== 历史 =====
-        undo() { this._onUndo(); },
-        redo() { this._onRedo(); },
-
-        // ===== 统计 =====
-        async loadStats(puzzleId) {
-            this.stats = await PuzzleStorage.getStats(puzzleId);
-        },
-
-        // ===== 提交 =====
-        async submitPuzzle() {
-            this.message = '';
+        // ===== 用户操作 → emit 给父组件 =====
+        inputNumber(num) { this.$emit('input-number', num); },
+        clearSelected() { this.$emit('clear-selected'); },
+        undo() { this.$emit('undo'); },
+        redo() { this.$emit('redo'); },
+        submitPuzzle() {
             const puzzle = this.board.map(row => [...row]);
-            if (!this.hasPuzzle) { this.message = '请在棋盘上输入数字'; return; }
+            if (!puzzle.some(row => row.some(cell => cell > 0))) {
+                this.$emit('submit-error', '请在棋盘上输入数字');
+                return;
+            }
             const solution = this.gameBoard.map(row => row.map(cell => cell.value));
-            // 检查是否所有格子都已填满且无冲突
-            const allFilled = solution.every(row => row.every(v => v > 0));
-            if (!allFilled) { this.message = '请先完成解题再提交'; return; }
-            this.message = '正在保存...';
-
-            let saveResult;
-            if (this.submittedPuzzleId) {
-                saveResult = await PuzzleStorage.update(
-                    this.submittedPuzzleId, this.currentUser.id,
-                    puzzle, solution, this.size, this.boxSize,
-                    this.puzzleTitle || undefined
-                );
-            } else {
-                saveResult = await PuzzleStorage.add(
-                    this.currentUser.id, this.currentUser.username,
-                    puzzle, solution, this.size, this.boxSize,
-                    this.puzzleTitle || undefined
-                );
+            if (!solution.every(row => row.every(v => v > 0))) {
+                this.$emit('submit-error', '请先完成解题再提交');
+                return;
             }
-
-            if (saveResult.success) {
-                this.message = this.submittedPuzzleId
-                    ? '✅ 题目修改成功！所有挑战数据已重置'
-                    : '✅ 题目保存成功！题目ID: ' + saveResult.puzzle.id;
-                await new Promise(r => setTimeout(r, 1500));
-                this.$emit('saved');
-            } else {
-                this.message = saveResult.message || '保存失败，请重试';
-            }
+            this.$emit('submit-puzzle', { puzzle, solution, title: this.puzzleTitle || undefined });
         }
     },
+    watch: {
+        board: { handler() { this.$nextTick(() => this._renderBoard()); }, deep: true },
+        gameBoard: { handler() { this.$nextTick(() => this._renderBoard()); }, deep: true },
+        selectedRow() { this.$nextTick(() => this._renderBoard()); },
+        selectedCol() { this.$nextTick(() => this._renderBoard()); }
+    },
     mounted() {
-        // 必须在 _bindCanvas 之前设置 canvasId
         this._canvasId = 'createCanvas';
-        
-        if (this.editPuzzleData) {
-            const puzzleData = this.editPuzzleData;
-            const puzzleStr = puzzleData.puzzle_data || puzzleData.puzzle;
-            let puzzle;
-            if (typeof puzzleStr === 'string') {
-                try { puzzle = JSON.parse(puzzleStr); } catch (e) { puzzle = []; }
-            } else {
-                puzzle = puzzleStr;
-            }
-            if (Array.isArray(puzzle) && puzzle.length > 0) {
-                const n = Math.round(Math.sqrt(puzzle.length));
-                this.puzzleN = n;
-                this.puzzleTitle = puzzleData.title || '';
-                this.board = puzzle.map(row => [...row]);
-                this.submittedPuzzleId = puzzleData.id;
-                this.loadStats(puzzleData.id);
-            }
-        } else {
-            this.initBoard();
-        }
         this._bindCanvas();
         this._bindKeyboard();
     },

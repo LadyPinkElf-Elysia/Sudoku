@@ -1,5 +1,5 @@
 // GameStateManager.js - 游戏状态管理（静态方法，通用）
-import { SudokuGameHelper } from '../SudokuGameHelper.js';
+import { SudokuGameHelper } from './SudokuGameHelper.js';
 import { SudokuGridHelper } from './SudokuGrid.js';
 
 export class GameStateManager {
@@ -139,17 +139,4 @@ export class GameStateManager {
         };
     }
 
-    /**
-     * 验证配置中的 N 值
-     */
-    static validateN(N, NMin, NMax) {
-        return Math.max(NMin, Math.min(NMax, N));
-    }
-
-    /**
-     * 验证配置中的 blanks 值
-     */
-    static validateBlanks(blanks, min, max) {
-        return Math.max(min, Math.min(max, blanks));
-    }
 }

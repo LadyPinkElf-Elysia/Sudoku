@@ -19,17 +19,4 @@ export class FormatUtils {
         return rate + '%';
     }
 
-    /**
-     * 格式化统计对象（添加 passRate 和 avgTimeFormatted）
-     */
-    static formatStats(stats) {
-        if (!stats) return null;
-        return {
-            totalChallenges: stats.totalChallenges,
-            completedChallenges: stats.completedChallenges,
-            passRate: FormatUtils.calcPassRate(stats),
-            avgTime: stats.avgTime || 0,
-            avgTimeFormatted: stats.avgTime > 0 ? FormatUtils.formatTime(stats.avgTime) : ''
-        };
-    }
 }
