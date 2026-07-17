@@ -15,7 +15,7 @@ export const CreatePuzzleComponent = {
             <div v-if="createPuzzleMode === 'edit'" class="config-item">
                 <label>宫格大小 N:</label>
                 <div class="input-group">
-                    <input type="number" :value="puzzleN" :min="2" :max="6" @change="$emit('update:puzzleN', parseInt($event.target.value) || 3)">
+                    <input type="number" :value="boxSize" :min="2" :max="6" @change="$emit('update:boxSize', parseInt($event.target.value) || 3)">
                     <span class="hint">{{ size }} x {{ size }} 的棋盘</span>
                 </div>
             </div>
@@ -90,7 +90,7 @@ export const CreatePuzzleComponent = {
         currentUser: { type: Object, required: true },
         createPuzzleMode: { type: String, default: 'edit' },
         puzzleTitle: { type: String, default: '' },
-        puzzleN: { type: Number, default: 3 },
+        boxSize: { type: Number, default: 3 },
         createMessage: { type: String, default: '' },
         board: { type: Array, default: () => [] },
         gameBoard: { type: Array, default: () => [] },
@@ -103,20 +103,14 @@ export const CreatePuzzleComponent = {
     },
     emits: [
         'back', 'saved',
-        'update:puzzleN', 'update:puzzleTitle', 'update:zoom',
+        'update:boxSize', 'update:puzzleTitle', 'update:zoom',
         'cell-click', 'input-number', 'clear-selected', 'undo', 'redo',
         'clear-board', 'start-solving', 'back-to-edit',
         'submit-puzzle', 'submit-error'
     ],
     computed: {
-        hasPuzzle() {
-            if (!this.board.length) return false;
-            return this.board.some(row => row.some(cell => cell > 0));
-        },
-        isComplete() {
-            if (!this.gameBoard.length) return false;
-            return this.gameBoard.every(row => row.every(cell => cell.value > 0 && !cell.conflict));
-        },
+        hasPuzzle() { return BoardManager.hasNumber(this.board); },
+        isComplete() { return BoardManager.isBoardComplete(this.gameBoard); },
         passRate() {
             return FormatUtils.calcPassRate(this.stats);
         },

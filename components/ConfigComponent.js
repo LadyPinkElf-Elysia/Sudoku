@@ -8,10 +8,10 @@ export const ConfigComponent = {
             </div>
             
             <div class="config-item">
-                <label>棋盘大小 N ({{ config.NMin }} - {{ config.NMax }}):</label>
+                <label>棋盘大小 ({{ config.boxSizeMin }} - {{ config.boxSizeMax }}):</label>
                 <div class="input-group">
-                    <input type="number" :value="config.N" :min="config.NMin" :max="config.NMax" @input="onNChange">
-                    <span class="hint">生成 {{ config.N * config.N }} x {{ config.N * config.N }}</span>
+                    <input type="number" :value="config.boxSize" :min="config.boxSizeMin" :max="config.boxSizeMax" @input="onNChange">
+                    <span class="hint">生成 {{ config.boxSize * config.boxSize }} x {{ config.boxSize * config.boxSize }}</span>
                 </div>
             </div>
             <div class="config-item">
@@ -46,8 +46,8 @@ export const ConfigComponent = {
     emits: ['start', 'back', 'update:config'],
     methods: {
         onNChange(e) {
-            const val = parseInt(e.target.value) || this.config.NMin;
-            this.$emit('update:config', { ...this.config, N: Math.max(this.config.NMin, Math.min(this.config.NMax, val)) });
+            const val = parseInt(e.target.value) || this.config.boxSizeMin;
+            this.$emit('update:config', { ...this.config, boxSize: Math.max(this.config.boxSizeMin, Math.min(this.config.boxSizeMax, val)) });
         },
         onBlanksChange(e) {
             const val = parseInt(e.target.value) || this.minBlanks;

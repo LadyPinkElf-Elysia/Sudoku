@@ -135,7 +135,7 @@ export const GameComponent = {
             handler() { this.$nextTick(() => this._renderBoard()); },
             deep: true
         },
-        'config.N'() { this.$nextTick(() => this._renderBoard()); }
+        'config.boxSize'() { this.$nextTick(() => this._renderBoard()); }
     },
     mounted() {
         this._bindCanvas();

@@ -1,11 +1,31 @@
 // SudokuGenerator.js - 数独生成器（封装 Worker 管理，静态方法）
 import { GridUtils } from './SudokuGrid.js';
 
+// ===== Web Worker 代码（内联） =====
+const workerCode = `
+import { GridUtils } from './SudokuGrid.js';
+self.onmessage = function(e) {
+    try {
+        const { BOX_SIZE, SIZE, blanks, type } = e.data;
+        if (type === 'generate') {
+            const solution = GridUtils.generateSolution(BOX_SIZE, SIZE);
+            const puzzle = GridUtils.createPuzzle(solution, blanks);
+            self.postMessage({ success: true, puzzle, type: 'generateComplete' });
+        }
+    } catch (error) {
+        self.postMessage({ success: false, error: error.message, type: 'generateError' });
+    }
+};
+`;
+
 let _worker = null;
 
 function _getWorker() {
     if (!_worker) {
-        _worker = new Worker(`./util/SudokuWorker.js?t=${Date.now()}`, { type: 'module' });
+        const blob = new Blob([workerCode], { type: 'application/javascript' });
+        const url = URL.createObjectURL(blob);
+        _worker = new Worker(url, { type: 'module' });
+        URL.revokeObjectURL(url);
     }
     return _worker;
 }
@@ -18,13 +38,6 @@ function _terminateWorker() {
 }
 
 export class SudokuGenerator {
-    /**
-     * 异步生成数独（使用 Web Worker）
-     * @param {number} BOX_SIZE - 宫格大小
-     * @param {number} SIZE - 棋盘大小
-     * @param {number} blanks - 挖空数量
-     * @returns {Promise<number[][]>} 生成的谜题二维数组
-     */
     static generate(BOX_SIZE, SIZE, blanks) {
         return new Promise((resolve, reject) => {
             _terminateWorker();
@@ -33,9 +46,8 @@ export class SudokuGenerator {
             const timeout = setTimeout(() => {
                 worker.terminate();
                 _worker = null;
-                // 超时回退到同步生成
                 resolve(SudokuGenerator.generateSync(BOX_SIZE, SIZE, blanks));
-            }, 30000); // 30秒超时
+            }, 30000);
 
             worker.onmessage = (e) => {
                 clearTimeout(timeout);
@@ -57,17 +69,11 @@ export class SudokuGenerator {
         });
     }
 
-    /**
-     * 同步生成数独（回退方案）
-     */
     static generateSync(BOX_SIZE, SIZE, blanks) {
         const solution = GridUtils.generateSolution(BOX_SIZE, SIZE);
         return GridUtils.createPuzzle(solution, blanks);
     }
 
-    /**
-     * 终止当前 Worker
-     */
     static abort() {
         _terminateWorker();
     }

@@ -1,8 +1,7 @@
 // main.js - 应用入口（单一数据源，只负责修改数据）
 const { createApp } = Vue;
-import { Pages } from './util/FormatUtils.js';
+import { Pages, FormatUtils } from './util/FormatUtils.js';
 import { SudokuGenerator } from './util/SudokuGenerator.js';
-import { GameStateManager } from './util/GameStateManager.js';
 import { BoardManager } from './util/BoardManager.js';
 import { PuzzleStorage, UserSystem } from './api.js';
 import { LoginComponent } from './components/LoginComponent.js';
@@ -18,18 +17,17 @@ const app = createApp({
         return {
             page: Pages.LOGIN,
             currentUser: null,
-            config: GameStateManager.createDefaultConfig(),
-            game: GameStateManager.createDefaultState(),
+            config: FormatUtils.createDefaultConfig(),
+            game: FormatUtils.createDefaultState(),
             historyMap: {},
             stepPointer: -1,
             zoom: 1.0,
             currentPuzzleData: null,
             editPuzzleData: null,
             viewUserId: null,
-            // CreatePuzzle 数据
             createPuzzleMode: 'edit',
             puzzleTitle: '',
-            puzzleN: 3,
+            boxSize: 3,
             createMessage: '',
             createBoard: [],
             createGameBoard: [],
@@ -40,30 +38,25 @@ const app = createApp({
             createShowVictory: false,
             createStats: null,
             submittedPuzzleId: null,
-            // SearchPuzzles 数据
             searchQuery: '',
             searchResults: [],
             searchMessage: '',
-            // MyPuzzles 数据
             myPuzzles: [],
             myPuzzlesMessage: '',
             myPuzzlesLoading: false,
-            // Login 数据
             loginMessage: ''
         };
     },
     computed: {
-        blanksRange() {
-            return GameStateManager.calcBlanksRange(this.config.N);
-        },
-        boxSize() { return this.config.N; },
-        size() { return this.config.N * this.config.N; },
-        createBoxSize() { return this.puzzleN; },
-        createSize() { return this.puzzleN * this.puzzleN; }
+        blanksRange() { return FormatUtils.calcBlanksRange(this.config.boxSize); },
+        boxSize() { return this.config.boxSize; },
+        size() { return this.config.boxSize * this.config.boxSize; },
+        createBoxSize() { return this.boxSize; },
+        createSize() { return this.boxSize * this.boxSize; }
     },
     watch: {
-        'config.N'(val) {
-            this.config.N = Math.max(this.config.NMin, Math.min(this.config.NMax, val));
+        'config.boxSize'(val) {
+            this.config.boxSize = Math.max(this.config.boxSizeMin, Math.min(this.config.boxSizeMax, val));
             const { min, max } = this.blanksRange;
             if (this.config.blanks < min) this.config.blanks = min;
             if (this.config.blanks > max) this.config.blanks = max;
@@ -74,34 +67,26 @@ const app = createApp({
         }
     },
     methods: {
-        // ===== 公共页面切换 =====
         goToPage(page) { this.page = page; },
 
-        // ===== 通用工具 =====
         _formatStats(stats) {
             return {
                 totalChallenges: stats.totalChallenges,
                 completedChallenges: stats.completedChallenges,
-                passRate: stats.totalChallenges > 0
-                    ? (stats.completedChallenges / stats.totalChallenges * 100).toFixed(1) + '%'
-                    : '暂无',
+                passRate: stats.totalChallenges > 0 ? (stats.completedChallenges / stats.totalChallenges * 100).toFixed(1) + '%' : '暂无',
                 avgTime: stats.avgTime || 0,
-                avgTimeFormatted: stats.avgTime > 0
-                    ? Math.floor(stats.avgTime / 60) + '分' + (stats.avgTime % 60) + '秒'
-                    : ''
+                avgTimeFormatted: stats.avgTime > 0 ? Math.floor(stats.avgTime / 60) + '分' + (stats.avgTime % 60) + '秒' : ''
             };
         },
         _parsePuzzleStr(puzzleData) {
             const str = puzzleData.puzzle_data || puzzleData.puzzle;
-            if (typeof str === 'string') {
-                try { return JSON.parse(str); } catch (e) { return []; }
-            }
+            if (typeof str === 'string') { try { return JSON.parse(str); } catch (e) { return []; } }
             return str;
         },
         _resetCreateState() {
             this.createPuzzleMode = 'edit';
             this.puzzleTitle = '';
-            this.puzzleN = 3;
+            this.boxSize = 3;
             this.createMessage = '';
             this.createBoard = [];
             this.createGameBoard = [];
@@ -117,21 +102,13 @@ const app = createApp({
         // ===== 登录/注册 =====
         async onDoLogin(credentials) {
             const result = await UserSystem.login(credentials.username, credentials.password);
-            if (result.success) {
-                this.currentUser = result.user;
-                this.goToPage(Pages.MAIN_MENU);
-            } else {
-                this.loginMessage = result.message;
-            }
+            if (result.success) { this.currentUser = result.user; this.goToPage(Pages.MAIN_MENU); }
+            else { this.loginMessage = result.message; }
         },
         async onDoRegister(credentials) {
             const result = await UserSystem.register(credentials.username, credentials.password);
-            if (result.success) {
-                this.currentUser = result.user;
-                this.goToPage(Pages.MAIN_MENU);
-            } else {
-                this.loginMessage = result.message || '注册失败，请重试';
-            }
+            if (result.success) { this.currentUser = result.user; this.goToPage(Pages.MAIN_MENU); }
+            else { this.loginMessage = result.message || '注册失败，请重试'; }
         },
         onGuestLogin() {
             this.currentUser = { id: -1, username: '游客', isGuest: true };
@@ -168,7 +145,7 @@ const app = createApp({
             this._resetCreateState();
             const parsed = this._parsePuzzleStr(puzzle);
             if (Array.isArray(parsed) && parsed.length > 0) {
-                this.puzzleN = Math.round(Math.sqrt(parsed.length));
+                this.boxSize = Math.round(Math.sqrt(parsed.length));
                 this.puzzleTitle = puzzle.title || '';
                 this.createBoard = parsed.map(row => [...row]);
                 this.submittedPuzzleId = puzzle.id;
@@ -178,24 +155,20 @@ const app = createApp({
         },
 
         // ===== CreatePuzzle 操作 =====
-        _initCreateBoard() {
-            this.createBoard = BoardManager.createEmptyBoard(this.createSize);
-        },
-        _createOperateCell(updateFn) {
+        _initCreateBoard() { this.createBoard = BoardManager.createEmptyBoard(this.createSize); },
+        _createOperateCell(num) {
             if (this.createSelectedRow === null || this.createSelectedCol === null) return;
             const r = this.createSelectedRow, c = this.createSelectedCol;
             if (this.createPuzzleMode === 'edit') {
-                updateFn(this.createBoard[r], c);
+                const result = BoardManager.operateCell(this.createBoard, r, c, num, { isNumberBoard: true });
+                if (result) this.createBoard = result.board;
             } else {
                 if (this.createGameBoard[r][c].given) return;
-                const result = BoardManager.operateCell(
-                    this.createGameBoard, r, c, updateFn,
-                    {
-                        boxSize: this.createBoxSize,
-                        size: this.createSize,
-                        history: { historyMap: this.createHistoryMap, stepPointer: this.createStepPointer }
-                    }
-                );
+                const result = BoardManager.operateCell(this.createGameBoard, r, c, num, {
+                    boxSize: this.createBoxSize,
+                    size: this.createSize,
+                    history: { historyMap: this.createHistoryMap, stepPointer: this.createStepPointer }
+                });
                 if (!result) return;
                 this.createGameBoard = result.board;
                 this.createHistoryMap = result.historyMap;
@@ -208,18 +181,10 @@ const app = createApp({
             this.createSelectedRow = row;
             this.createSelectedCol = col;
         },
-        onCreateInputNumber(num) {
-            this._createOperateCell((row, c) => { row[c] = (row[c] === num) ? 0 : num; });
-        },
-        onCreateClearSelected() {
-            this._createOperateCell((row, c) => { row[c] = 0; });
-        },
-        onCreateUndo() {
-            if (this.createStepPointer > 0) this._moveCreatePointer(this.createStepPointer - 1);
-        },
-        onCreateRedo() {
-            if (this.createHistoryMap[this.createStepPointer + 1]) this._moveCreatePointer(this.createStepPointer + 1);
-        },
+        onCreateInputNumber(num) { this._createOperateCell(num); },
+        onCreateClearSelected() { this._createOperateCell(0); },
+        onCreateUndo() { if (this.createStepPointer > 0) this._moveCreatePointer(this.createStepPointer - 1); },
+        onCreateRedo() { if (this.createHistoryMap[this.createStepPointer + 1]) this._moveCreatePointer(this.createStepPointer + 1); },
         _moveCreatePointer(targetStep) {
             this.createStepPointer = targetStep;
             const board = BoardManager.serializeBoard(this.createGameBoard, true);
@@ -242,10 +207,7 @@ const app = createApp({
             this.createShowVictory = false;
             this.createPuzzleMode = 'solve';
         },
-        onCreateBackToEdit() {
-            this.createPuzzleMode = 'edit';
-            this.createShowVictory = false;
-        },
+        onCreateBackToEdit() { this.createPuzzleMode = 'edit'; this.createShowVictory = false; },
         async onCreateSubmitPuzzle({ puzzle, solution, title }) {
             const saveFn = this.submittedPuzzleId
                 ? PuzzleStorage.update(this.submittedPuzzleId, this.currentUser.id, puzzle, solution, this.createSize, this.createBoxSize, title)
@@ -254,9 +216,7 @@ const app = createApp({
             if (saveResult.success) {
                 if (saveResult.puzzle) this.submittedPuzzleId = saveResult.puzzle.id;
                 this.createMessage = 'success';
-            } else {
-                this.createMessage = saveResult.message || '保存失败';
-            }
+            } else { this.createMessage = saveResult.message || '保存失败'; }
         },
 
         // ===== 搜索题目 =====
@@ -274,9 +234,7 @@ const app = createApp({
         // ===== 我的题目 =====
         async _loadMyPuzzles() {
             this.myPuzzlesLoading = true;
-            const targetUserId = (this.viewUserId !== null && this.viewUserId !== this.currentUser.id)
-                ? this.viewUserId
-                : this.currentUser.id;
+            const targetUserId = (this.viewUserId !== null && this.viewUserId !== this.currentUser.id) ? this.viewUserId : this.currentUser.id;
             this.myPuzzles = await PuzzleStorage.getByUser(targetUserId);
             await this._loadPuzzleStats(this.myPuzzles);
             this.myPuzzlesLoading = false;
@@ -285,7 +243,7 @@ const app = createApp({
         // ===== 游戏启动 =====
         async startFromConfig() {
             if (this.game.isGenerating) return;
-            this.game = { ...GameStateManager.createDefaultState(), isGenerating: true, hintsRemaining: -1 };
+            this.game = { ...FormatUtils.createDefaultState(), isGenerating: true, hintsRemaining: -1 };
             this.currentPuzzleData = null;
             this.goToPage(Pages.GAME);
             try {
@@ -297,7 +255,7 @@ const app = createApp({
             }
         },
         _applyBoard(puzzle) {
-            const init = GameStateManager.initGame(puzzle);
+            const init = BoardManager.initGame(puzzle);
             this.game = { ...this.game, ...init, isGenerating: false, started: true, startTime: Date.now() };
             this.historyMap = init.historyMap;
             this.stepPointer = init.stepPointer;
@@ -309,10 +267,10 @@ const app = createApp({
             this.currentPuzzleData = puzzleData;
             const size = puzzleData.size || puzzleData.SIZE;
             const n = Math.round(Math.sqrt(size));
-            this.config.N = n;
+            this.config.boxSize = n;
             const puzzle = this._parsePuzzleStr(puzzleData);
             const hintsRemaining = (n - 1) * (n - 1);
-            this.game = { ...GameStateManager.applyPuzzle(this.game, puzzle), hintsRemaining, startTime: Date.now() };
+            this.game = { ...BoardManager.applyPuzzle(this.game, puzzle), hintsRemaining, startTime: Date.now() };
             this.historyMap = {};
             this.stepPointer = -1;
             this.zoom = 1.0;
@@ -327,24 +285,17 @@ const app = createApp({
         resetGame() {
             if (this.game.isGenerating) return;
             SudokuGenerator.abort();
-            this.game = { ...GameStateManager.createDefaultState(), hintMessage: '' };
+            this.game = { ...FormatUtils.createDefaultState(), hintMessage: '' };
             this.goToPage(Pages.MAIN_MENU);
         },
 
-        // ===== 游戏操作（由子组件 emit 触发，统一修改数据） =====
-        onCellClick(row, col) {
-            this.game = { ...this.game, selectedRow: row, selectedCol: col, hintMessage: '' };
-        },
-        onInputNumber(num) {
-            this._operateCell(cell => { cell.value = (cell.value === num) ? 0 : num; });
-        },
-        onClearSelected() {
-            this._operateCell(cell => { cell.value = 0; });
-        },
-        _operateCell(updateFn) {
-            const result = GameStateManager.operateCell(this.game, this.config, this.game.selectedRow, this.game.selectedCol, updateFn, {
-                historyMap: this.historyMap,
-                stepPointer: this.stepPointer
+        // ===== 游戏操作 =====
+        onCellClick(row, col) { this.game = { ...this.game, selectedRow: row, selectedCol: col, hintMessage: '' }; },
+        onInputNumber(num) { this._operateCell(num); },
+        onClearSelected() { this._operateCell(0); },
+        _operateCell(num) {
+            const result = BoardManager.operateGameCell(this.game, this.config, this.game.selectedRow, this.game.selectedCol, num, {
+                historyMap: this.historyMap, stepPointer: this.stepPointer
             });
             if (!result) return;
             this.historyMap = result.newHistoryMap;
@@ -352,18 +303,12 @@ const app = createApp({
             this.game = result.newGame;
             this._recordChallengeIfComplete();
         },
-        onUndo() {
-            if (this.stepPointer > 0) this._movePointer(this.stepPointer - 1);
-        },
-        onRedo() {
-            if (this.historyMap[this.stepPointer + 1]) this._movePointer(this.stepPointer + 1);
-        },
+        onUndo() { if (this.stepPointer > 0) this._movePointer(this.stepPointer - 1); },
+        onRedo() { if (this.historyMap[this.stepPointer + 1]) this._movePointer(this.stepPointer + 1); },
         _movePointer(targetStep) {
             this.stepPointer = targetStep;
             const result = BoardManager.navigateHistory(this.game.board, this.historyMap, targetStep, this.boxSize, this.size);
-            if (result) {
-                this.game = { ...this.game, board: result.board, conflictMessages: result.messages, selectedRow: null, selectedCol: null, hintMessage: '' };
-            }
+            if (result) { this.game = { ...this.game, board: result.board, conflictMessages: result.messages, selectedRow: null, selectedCol: null, hintMessage: '' }; }
         },
         onGiveHint() {
             if (this.game.isGenerating || this.game.hintsRemaining === 0) return;
@@ -375,19 +320,11 @@ const app = createApp({
             if (this.game.complete && this.currentPuzzleData && this.currentUser) {
                 const elapsedTime = this.game.startTime ? Math.floor((Date.now() - this.game.startTime) / 1000) : 0;
                 this.game.elapsedTime = elapsedTime;
-                PuzzleStorage.recordChallenge(
-                    this.currentPuzzleData.id,
-                    this.currentUser.id,
-                    this.currentUser.username,
-                    true,
-                    elapsedTime
-                );
+                PuzzleStorage.recordChallenge(this.currentPuzzleData.id, this.currentUser.id, this.currentUser.username, true, elapsedTime);
             }
         }
     },
-    mounted() {
-        this.config.blanks = this.blanksRange.min;
-    }
+    mounted() { this.config.blanks = this.blanksRange.min; }
 });
 
 app.component('login-component', LoginComponent);

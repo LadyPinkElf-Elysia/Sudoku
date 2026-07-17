@@ -7,7 +7,7 @@ export const BoardMixin = {
     },
     emits: ['update:zoom'],
     computed: {
-        boxSize() { return this.config?.N || this.puzzleN || 3; },
+        boxSize() { return this.config?.boxSize || this.boxSize || 3; },
         size() { return this.boxSize * this.boxSize; },
         getSizeLabel() { const s = this.size; return s > 0 ? s + '×' + s : '配置中'; },
         stepKeys() { return Object.keys(this.historyMap || {}).map(Number).sort((a, b) => a - b); }
