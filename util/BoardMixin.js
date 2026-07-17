@@ -1,4 +1,4 @@
-// BoardMixin.js - 棋盘组件通用逻辑（缩放、Canvas、键盘）
+// BoardMixin.js - 棋盘组件通用逻辑（缩放、Canvas、键盘、历史）
 import { BoardManager } from './BoardManager.js';
 
 export const BoardMixin = {
@@ -7,22 +7,22 @@ export const BoardMixin = {
     },
     emits: ['update:zoom'],
     computed: {
-        boxSize() { return this.config?.boxSize || this..boxSize || 3; },
+        boxSize() { return this.config?.boxSize || this.$props.boxSize || 3; },
         size() { return this.boxSize * this.boxSize; },
-        getSizeLabel() { const s = this.size; return s > 0 ? s + '\u00D7' + s : '\u914D\u7F6E\u4E2D'; },
+        getSizeLabel() { const s = this.size; return s > 0 ? s + '×' + s : '配置中'; },
         stepKeys() { return Object.keys(this.historyMap || {}).map(Number).sort((a, b) => a - b); }
     },
     methods: {
         // ===== 缩放 =====
         zoomIn() {
             const newZoom = Math.min(3.0, this.zoom + 0.1);
-            this.('update:zoom', newZoom);
-            this.(() => this._renderBoard());
+            this.$emit('update:zoom', newZoom);
+            this.$nextTick(() => this._renderBoard());
         },
         zoomOut() {
             const newZoom = Math.max(0.5, this.zoom - 0.1);
-            this.('update:zoom', newZoom);
-            this.(() => this._renderBoard());
+            this.$emit('update:zoom', newZoom);
+            this.$nextTick(() => this._renderBoard());
         },
 
         // ===== Canvas 渲染 =====
@@ -40,7 +40,7 @@ export const BoardMixin = {
         _bindCanvas() {
             const canvasId = this._canvasId || 'sudokuCanvas';
             this._clickHandler = (e) => this._onCanvasClick(e);
-            this.(() => {
+            this.$nextTick(() => {
                 BoardManager.bindClick(this._clickHandler, canvasId);
                 this._renderBoard();
             });
@@ -65,10 +65,18 @@ export const BoardMixin = {
                 inputNumber: (num) => this._onInputNumber(num),
                 clearSelected: () => this._onClearSelected(),
                 selectCell: (r, c) => this._onCellClick(r, c),
-                undo: () => this._onUndo(),
-                redo: () => this._onRedo()
+                undo: () => this.undo ? this.undo() : this._onUndo(),
+                redo: () => this.redo ? this.redo() : this._onRedo()
             });
         },
+
+        // ===== 历史记录 =====
+        _saveState() {
+            const result = BoardManager.saveHistory(this.historyMap, this.stepPointer, this._getBoard());
+            this._onSaveState(result.newHistoryMap, result.newStepPointer);
+        },
+        _onUndo() { if (this.stepPointer > 0) this._onMovePointer(this.stepPointer - 1); },
+        _onRedo() { if (this.historyMap[this.stepPointer + 1]) this._onMovePointer(this.stepPointer + 1); },
 
         // ===== 子类需实现的方法 =====
         _getBoard() { return []; },
@@ -77,7 +85,10 @@ export const BoardMixin = {
         _onCellClick(row, col) {},
         _onInputNumber(num) {},
         _onClearSelected() {},
-        _onUndo() {},
-        _onRedo() {}
-    }
+        _onHistoryNavigate(messages) {},
+        _onSaveState(newHistoryMap, newStepPointer) {},
+        _onMovePointer(targetStep) {}
+    },
+    // mounted/beforeUnmount 由子组件手动调用 _bindCanvas/_bindKeyboard
+    // 因为子组件需要在 mounted 中先设置 _canvasId 再绑定
 };

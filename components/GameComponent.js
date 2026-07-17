@@ -4,11 +4,11 @@ import { BoardMixin } from '../util/BoardMixin.js';
 
 export const GameComponent = {
     mixins: [BoardMixin],
-    template: 
+    template: `
         <div class="game-area">
             <div class="status-bar">
                 <div class="status-left">
-                    <button class="btn btn-secondary btn-sm" @click="('back')">← 返回</button>
+                    <button class="btn btn-secondary btn-sm" @click="$emit('back')">← 返回</button>
                     <h2>🧩 {{ getSizeLabel }}</h2>
                 </div>
                 <div class="zoom-controls">
@@ -26,7 +26,7 @@ export const GameComponent = {
                     <span class="timer" v-if="game.started && !game.complete && !game.over">
                         ⏱️ {{ formattedTime }}
                     </span>
-                    <button class="btn btn-secondary" @click="('reset')">🔄 重设</button>
+                    <button class="btn btn-secondary" @click="$emit('reset')">🔄 重设</button>
                 </div>
             </div>
 
@@ -66,7 +66,7 @@ export const GameComponent = {
                     <h3>🎉 恭喜完成！</h3>
                     <p>你成功解开了 {{ size }}x{{ size }} 的数独！</p>
                     <p v-if="game.elapsedTime > 0">⏱️ 用时: {{ FormatUtils.formatTime(game.elapsedTime) }}</p>
-                    <button class="btn btn-primary" @click="('back')">返回菜单</button>
+                    <button class="btn btn-primary" @click="$emit('back')">返回菜单</button>
                 </div>
             </div>
 
@@ -74,7 +74,7 @@ export const GameComponent = {
                 <div class="victory-dialog" style="border: 2px solid #b91c1c;">
                     <h3 style="color: #b91c1c;">💀 游戏失败</h3>
                     <p>错误次数已超过设定的上限 ({{ config.errorLimit }}次)。</p>
-                    <button class="btn btn-primary" style="background: #b91c1c;" @click="('reset')">重新开始</button>
+                    <button class="btn btn-primary" style="background: #b91c1c;" @click="$emit('reset')">重新开始</button>
                 </div>
             </div>
 
@@ -85,7 +85,7 @@ export const GameComponent = {
                 </div>
             </div>
         </div>
-    ,
+    `,
     props: {
         game: { type: Object, required: true },
         config: { type: Object, required: true },
@@ -111,26 +111,31 @@ export const GameComponent = {
         _getGameState() { return this.game; },
         _getSelectedRow() { return this.game.selectedRow; },
         _getSelectedCol() { return this.game.selectedCol; },
-        _onCellClick(row, col) { this.('cell-click', row, col); },
-        _onInputNumber(num) { this.('input-number', num); },
-        _onClearSelected() { this.('clear-selected'); },
-        _onUndo() { this.('undo'); },
-        _onRedo() { this.('redo'); },
+        _onCellClick(row, col) {
+            this.$emit('cell-click', row, col);
+        },
+        _onInputNumber(num) { this.inputNumber(num); },
+        _onClearSelected() { this.clearSelected(); },
+        _onHistoryNavigate() { this.$nextTick(() => this._renderBoard()); },
+        _onSaveState() {},
+        _onMovePointer() {},
+        _onUndo() { this.undo(); },
+        _onRedo() { this.redo(); },
 
         // ===== 用户操作 → emit 给父组件 =====
-        inputNumber(num) { this.('input-number', num); },
-        clearSelected() { this.('clear-selected'); },
-        undo() { this.('undo'); },
-        redo() { this.('redo'); },
-        movePointer(step) { this.('move-pointer', step); },
-        giveHint() { this.('give-hint'); }
+        inputNumber(num) { this.$emit('input-number', num); },
+        clearSelected() { this.$emit('clear-selected'); },
+        undo() { this.$emit('undo'); },
+        redo() { this.$emit('redo'); },
+        movePointer(step) { this.$emit('move-pointer', step); },
+        giveHint() { this.$emit('give-hint'); }
     },
     watch: {
         game: {
-            handler() { this.(() => this._renderBoard()); },
+            handler() { this.$nextTick(() => this._renderBoard()); },
             deep: true
         },
-        'config.boxSize'() { this.(() => this._renderBoard()); }
+        'config.boxSize'() { this.$nextTick(() => this._renderBoard()); }
     },
     mounted() {
         this._bindCanvas();

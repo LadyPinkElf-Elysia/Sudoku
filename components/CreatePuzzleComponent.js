@@ -5,17 +5,17 @@ import { BoardManager } from '../util/BoardManager.js';
 
 export const CreatePuzzleComponent = {
     mixins: [BoardMixin],
-    template: 
+    template: `
         <div class="panel">
             <div class="config-header">
-                <button class="btn btn-secondary btn-sm" @click="('back')">← 返回</button>
+                <button class="btn btn-secondary btn-sm" @click="$emit('back')">← 返回</button>
                 <h2>✏️ {{ createPuzzleMode === 'edit' ? '出题 - 点击格子输入数字' : '🧩 解题' }}</h2>
             </div>
             
             <div v-if="createPuzzleMode === 'edit'" class="config-item">
                 <label>宫格大小 N:</label>
                 <div class="input-group">
-                    <input type="number" :value="boxSize" :min="2" :max="6" @change="('update:boxSize', parseInt(.target.value) || 3)">
+                    <input type="number" :value="boxSize" :min="2" :max="6" @change="$emit('update:boxSize', parseInt($event.target.value) || 3)">
                     <span class="hint">{{ size }} x {{ size }} 的棋盘</span>
                 </div>
             </div>
@@ -23,7 +23,7 @@ export const CreatePuzzleComponent = {
             <div v-if="createPuzzleMode === 'edit'" class="config-item">
                 <label>题目标题（可选）:</label>
                 <div class="input-group">
-                    <input type="text" :value="puzzleTitle" @input="('update:puzzleTitle', .target.value)" placeholder="给题目起个名字" style="width:100%;max-width:300px;">
+                    <input type="text" :value="puzzleTitle" @input="$emit('update:puzzleTitle', $event.target.value)" placeholder="给题目起个名字" style="width:100%;max-width:300px;">
                 </div>
             </div>
 
@@ -58,17 +58,18 @@ export const CreatePuzzleComponent = {
             </div>
             
             <div v-if="createPuzzleMode === 'edit'" class="create-actions">
-                <button class="btn btn-secondary" @click="('clear-board')">清空</button>
-                <button class="btn btn-primary" @click="('start-solving')" :disabled="!hasPuzzle">✅ 开始解题</button>
+                <button class="btn btn-secondary" @click="$emit('clear-board')">清空</button>
+                <button class="btn btn-primary" @click="$emit('start-solving')" :disabled="!hasPuzzle">✅ 开始解题</button>
             </div>
             <div v-else class="create-actions">
-                <button class="btn btn-secondary" @click="('back-to-edit')">← 返回修改题目</button>
+                <button class="btn btn-secondary" @click="$emit('back-to-edit')">← 返回修改题目</button>
                 <button class="btn btn-primary" @click="submitPuzzle" :disabled="!isComplete">📤 提交题目</button>
             </div>
             
             <div v-if="createMessage" class="auth-message">{{ createMessage }}</div>
-        </div>
-    ,
+            
+            </div>
+    `,
     props: {
         currentUser: { type: Object, required: true },
         createPuzzleMode: { type: String, default: 'edit' },
@@ -81,6 +82,7 @@ export const CreatePuzzleComponent = {
         selectedCol: { type: Number, default: null },
         historyMap: { type: Object, default: () => ({}) },
         stepPointer: { type: Number, default: -1 },
+        showVictory: { type: Boolean, default: false },
         stats: { type: Object, default: null }
     },
     emits: [
@@ -93,7 +95,9 @@ export const CreatePuzzleComponent = {
     computed: {
         hasPuzzle() { return BoardManager.hasNumber(this.board); },
         isComplete() { return BoardManager.isBoardComplete(this.gameBoard); },
-        passRate() { return FormatUtils.calcPassRate(this.stats); }
+        passRate() {
+            return FormatUtils.calcPassRate(this.stats);
+        }
     },
     methods: {
         // ===== BoardMixin 实现（只读，不修改数据） =====
@@ -105,36 +109,41 @@ export const CreatePuzzleComponent = {
         },
         _getSelectedRow() { return this.selectedRow; },
         _getSelectedCol() { return this.selectedCol; },
-        _onCellClick(row, col) { this.('cell-click', row, col); },
-        _onInputNumber(num) { this.('input-number', num); },
-        _onClearSelected() { this.('clear-selected'); },
-        _onUndo() { this.('undo'); },
-        _onRedo() { this.('redo'); },
+        _onCellClick(row, col) {
+            this.$emit('cell-click', row, col);
+        },
+        _onInputNumber(num) { this.inputNumber(num); },
+        _onClearSelected() { this.clearSelected(); },
+        _onHistoryNavigate() { this.$nextTick(() => this._renderBoard()); },
+        _onSaveState() {},
+        _onMovePointer() {},
+        _onUndo() { this.undo(); },
+        _onRedo() { this.redo(); },
 
         // ===== 用户操作 → emit 给父组件 =====
-        inputNumber(num) { this.('input-number', num); },
-        clearSelected() { this.('clear-selected'); },
-        undo() { this.('undo'); },
-        redo() { this.('redo'); },
+        inputNumber(num) { this.$emit('input-number', num); },
+        clearSelected() { this.$emit('clear-selected'); },
+        undo() { this.$emit('undo'); },
+        redo() { this.$emit('redo'); },
         submitPuzzle() {
             const puzzle = this.board.map(row => [...row]);
             if (!puzzle.some(row => row.some(cell => cell > 0))) {
-                this.('submit-error', '请在棋盘上输入数字');
+                this.$emit('submit-error', '请在棋盘上输入数字');
                 return;
             }
             const solution = this.gameBoard.map(row => row.map(cell => cell.value));
             if (!solution.every(row => row.every(v => v > 0))) {
-                this.('submit-error', '请先完成解题再提交');
+                this.$emit('submit-error', '请先完成解题再提交');
                 return;
             }
-            this.('submit-puzzle', { puzzle, solution, title: this.puzzleTitle || undefined });
+            this.$emit('submit-puzzle', { puzzle, solution, title: this.puzzleTitle || undefined });
         }
     },
     watch: {
-        board: { handler() { this.(() => this._renderBoard()); }, deep: true },
-        gameBoard: { handler() { this.(() => this._renderBoard()); }, deep: true },
-        selectedRow() { this.(() => this._renderBoard()); },
-        selectedCol() { this.(() => this._renderBoard()); }
+        board: { handler() { this.$nextTick(() => this._renderBoard()); }, deep: true },
+        gameBoard: { handler() { this.$nextTick(() => this._renderBoard()); }, deep: true },
+        selectedRow() { this.$nextTick(() => this._renderBoard()); },
+        selectedCol() { this.$nextTick(() => this._renderBoard()); }
     },
     mounted() {
         this._canvasId = 'createCanvas';
@@ -146,3 +155,5 @@ export const CreatePuzzleComponent = {
         this._unbindCanvas();
     }
 };
+
+
