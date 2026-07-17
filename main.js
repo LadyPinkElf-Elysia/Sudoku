@@ -242,6 +242,15 @@ const app = createApp({
             await this._loadPuzzleStats(this.myPuzzles);
             this.myPuzzlesLoading = false;
         },
+        async onDeletePuzzle(puzzle) {
+            const result = await PuzzleStorage.delete(puzzle.id, this.currentUser.id);
+            if (result.success) {
+                this.myPuzzlesMessage = '题目已成功删除';
+                await this._loadMyPuzzles();
+            } else {
+                this.myPuzzlesMessage = result.message || '删除失败';
+            }
+        },
 
         // ===== 游戏启动 =====
         async startFromConfig() {

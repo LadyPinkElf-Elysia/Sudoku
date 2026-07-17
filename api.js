@@ -167,6 +167,20 @@ export class PuzzleStorage {
         }
     }
 
+    static async delete(puzzleId, userId) {
+        try {
+            const res = await fetch('/api/puzzles/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ [REQ.PUZZLE_ID]: puzzleId, [REQ.USER_ID]: userId })
+            });
+            return await res.json();
+        } catch (e) {
+            console.error('删除题目失败:', e);
+            return { success: false, message: '网络错误，请重试' };
+        }
+    }
+
     static async update(puzzleId, userId, puzzle, solution, SIZE, BOX_SIZE, title) {
         try {
             const res = await fetch('/api/puzzles/update', {

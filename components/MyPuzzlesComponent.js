@@ -36,6 +36,7 @@ export const MyPuzzlesComponent = {
 
                     <div class="card-actions" v-if="!isReadonly">
                         <button class="btn btn-secondary btn-sm" @click="$emit('edit-puzzle', puzzle)">✏️ 修改</button>
+                        <button class="btn btn-secondary btn-sm" @click="deletePuzzle(puzzle)">🗑️ 删除</button>
                     </div>
                 </div>
             </div>
@@ -48,8 +49,15 @@ export const MyPuzzlesComponent = {
         message: { type: String, default: '' },
         loading: { type: Boolean, default: false }
     },
-    emits: ['back', 'edit-puzzle'],
+    emits: ['back', 'edit-puzzle', 'delete-puzzle'],
     computed: {
         isReadonly() { return this.viewUserId !== null && this.viewUserId !== this.currentUser.id; }
+    },
+    methods: {
+        deletePuzzle(puzzle) {
+            if (confirm(`确定要删除题目 #${puzzle.id} 吗？此操作不可撤销。`)) {
+                this.$emit('delete-puzzle', puzzle);
+            }
+        }
     }
 };
