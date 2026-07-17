@@ -68,7 +68,7 @@ export const CreatePuzzleComponent = {
             
             <div v-if="createMessage && !submitSuccess" class="auth-message">{{ createMessage }}</div>
             
-            <div class="victory-overlay" v-if="showVictory">
+            <div class="victory-overlay" v-if="showVictory && !createSubmitted">
                 <div class="victory-dialog">
                     <h3>🎉 恭喜完成！</h3>
                     <p>你成功解开了自己出的数独！</p>

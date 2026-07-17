@@ -212,6 +212,7 @@ const app = createApp({
         },
         onCreateBackToEdit() { this.createPuzzleMode = 'edit'; this.createShowVictory = false; },
         async onCreateSubmitPuzzle({ puzzle, solution, title }) {
+            this.createShowVictory = false;
             const saveFn = this.submittedPuzzleId
                 ? PuzzleStorage.update(this.submittedPuzzleId, this.currentUser.id, puzzle, solution, this.createSize, this.createBoxSize, title)
                 : PuzzleStorage.add(this.currentUser.id, this.currentUser.username, puzzle, solution, this.createSize, this.createBoxSize, title);
