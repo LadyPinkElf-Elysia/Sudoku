@@ -35,7 +35,7 @@ export async function onRequestPost(context) {
 
         // 记录挑战
         if (path === '/challenge') {
-            const { puzzleId, userId, username, completed } = await request.json();
+            const { puzzleId, userId, username, completed, elapsedTime } = await request.json();
 
             if (!puzzleId || !userId) {
                 return new Response(JSON.stringify({
@@ -44,8 +44,8 @@ export async function onRequestPost(context) {
             }
 
             await db.prepare(
-                'INSERT INTO challenges (puzzle_id, user_id, username, completed, created_at) VALUES (?, ?, ?, ?, ?)'
-            ).bind(puzzleId, userId, username || '', completed ? 1 : 0, Date.now()).run();
+                'INSERT INTO challenges (puzzle_id, user_id, username, completed, elapsed_time, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+            ).bind(puzzleId, userId, username || '', completed ? 1 : 0, elapsedTime || 0, Date.now()).run();
 
             return new Response(JSON.stringify({
                 success: true
@@ -124,7 +124,7 @@ export async function onRequestGet(context) {
             }), { headers });
         }
 
-        // 获取题目统计（挑战人数、通过人数）
+        // 获取题目统计（挑战人数、通过人数、平均通过时间）
         if (path === '/stats') {
             const puzzleId = url.searchParams.get('id');
             if (!puzzleId) {
@@ -141,11 +141,16 @@ export async function onRequestGet(context) {
                 'SELECT COUNT(*) as count FROM challenges WHERE puzzle_id = ? AND completed = 1'
             ).bind(puzzleId).first();
 
+            const avgTimeResult = await db.prepare(
+                'SELECT AVG(elapsed_time) as avg_time FROM challenges WHERE puzzle_id = ? AND completed = 1 AND elapsed_time > 0'
+            ).bind(puzzleId).first();
+
             return new Response(JSON.stringify({
                 success: true,
                 stats: {
                     totalChallenges: Number(totalResult.count),
-                    completedChallenges: Number(completedResult.count)
+                    completedChallenges: Number(completedResult.count),
+                    avgTime: avgTimeResult?.avg_time ? Math.round(Number(avgTimeResult.avg_time)) : 0
                 }
             }), { headers });
         }

@@ -28,6 +28,7 @@ export const SearchPuzzlesComponent = {
                             <span>👥 {{ puzzle.stats.totalChallenges }}</span>
                             <span>✅ {{ puzzle.stats.completedChallenges }}</span>
                             <span>📊 {{ puzzle.stats.passRate }}</span>
+                            <span v-if="puzzle.stats.avgTime > 0">⏱️ {{ puzzle.stats.avgTimeFormatted }}</span>
                         </div>
                         <div class="puzzle-card-date">{{ new Date(puzzle.created_at || puzzle.createdAt).toLocaleDateString() }}</div>
                     </div>
@@ -57,6 +58,11 @@ export const SearchPuzzlesComponent = {
                 this.message = '找到 ' + this.searchResults.length + ' 道题目';
             }
         },
+        _formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+        },
         async _loadStatsForResults() {
             for (const puzzle of this.searchResults) {
                 const stats = await PuzzleStorage.getStats(puzzle.id);
@@ -65,7 +71,9 @@ export const SearchPuzzlesComponent = {
                     completedChallenges: stats.completedChallenges,
                     passRate: stats.totalChallenges > 0
                         ? (stats.completedChallenges / stats.totalChallenges * 100).toFixed(1) + '%'
-                        : '暂无'
+                        : '暂无',
+                    avgTime: stats.avgTime || 0,
+                    avgTimeFormatted: stats.avgTime > 0 ? this._formatTime(stats.avgTime) : ''
                 };
             }
         }

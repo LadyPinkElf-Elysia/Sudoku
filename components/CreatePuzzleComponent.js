@@ -33,6 +33,7 @@ export const CreatePuzzleComponent = {
                 <span class="stat-item">👥 挑战人数: {{ stats.totalChallenges }}</span>
                 <span class="stat-item">✅ 通过人数: {{ stats.completedChallenges }}</span>
                 <span class="stat-item">📊 通过率: {{ passRate }}</span>
+                <span class="stat-item" v-if="stats.avgTime > 0">⏱️ 平均用时: {{ formatTime(stats.avgTime) }}</span>
             </div>
 
             <div class="zoom-controls" style="margin-bottom:8px;">
@@ -245,6 +246,11 @@ export const CreatePuzzleComponent = {
                 this.selectedCol = null;
                 this.renderCanvas();
             }
+        },
+        formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
         },
         async loadStats(puzzleId) {
             this.stats = await PuzzleStorage.getStats(puzzleId);

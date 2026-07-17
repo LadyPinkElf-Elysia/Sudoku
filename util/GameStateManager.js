@@ -17,7 +17,10 @@ export class GameStateManager {
             selectedCol: null,
             conflictMessages: [],
             hintMessage: '',
-            isGenerating: false
+            isGenerating: false,
+            hintsRemaining: -1, // -1 表示无限提示
+            startTime: null,
+            elapsedTime: 0
         };
     }
 

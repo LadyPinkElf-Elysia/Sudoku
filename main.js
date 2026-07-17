@@ -59,8 +59,8 @@ const app = createApp({
             const BOX_SIZE = this.config.N;
             const SIZE = this.config.N * this.config.N;
 
-            // 重置游戏状态
-            this.game = { ...GameStateManager.createDefaultState(), isGenerating: true };
+            // 重置游戏状态（系统随机题目：无限提示）
+            this.game = { ...GameStateManager.createDefaultState(), isGenerating: true, hintsRemaining: -1 };
             this.currentPuzzleData = null;
             this.page = 'game';
 
@@ -75,7 +75,7 @@ const app = createApp({
         },
         _applyBoard(puzzle) {
             const init = GameStateManager.initGame(puzzle);
-            this.game = { ...this.game, ...init, isGenerating: false };
+            this.game = { ...this.game, ...init, isGenerating: false, started: true, startTime: Date.now() };
             this.historyMap = init.historyMap;
             this.stepPointer = init.stepPointer;
             this.zoom = init.zoom;
@@ -85,7 +85,8 @@ const app = createApp({
         startUserPuzzle(puzzleData) {
             this.currentPuzzleData = puzzleData;
             const size = puzzleData.size || puzzleData.SIZE;
-            this.config.N = Math.round(Math.sqrt(size));
+            const n = Math.round(Math.sqrt(size));
+            this.config.N = n;
 
             let puzzle = puzzleData.puzzle_data || puzzleData.puzzle;
             if (typeof puzzle === 'string') {
@@ -97,7 +98,9 @@ const app = createApp({
                 return;
             }
 
-            this.game = GameStateManager.applyPuzzle(this.game, puzzle);
+            // 用户题目：提示次数为 (n-1)^2
+            const hintsRemaining = (n - 1) * (n - 1);
+            this.game = { ...GameStateManager.applyPuzzle(this.game, puzzle), hintsRemaining, startTime: Date.now() };
             this.historyMap = {};
             this.stepPointer = -1;
             this.zoom = 1.0;
@@ -122,12 +125,15 @@ const app = createApp({
         updateGame(newGame) {
             // 记录挑战结果
             if (newGame.complete && this.currentPuzzleData && this.currentUser) {
+                const elapsedTime = this.game.startTime ? Math.floor((Date.now() - this.game.startTime) / 1000) : 0;
+                newGame.elapsedTime = elapsedTime;
                 import('./api.js').then(({ PuzzleStorage }) => {
                     PuzzleStorage.recordChallenge(
                         this.currentPuzzleData.id,
                         this.currentUser.id,
                         this.currentUser.username,
-                        true
+                        true,
+                        elapsedTime
                     );
                 });
             }

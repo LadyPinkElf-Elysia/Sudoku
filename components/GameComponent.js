@@ -18,8 +18,14 @@ export const GameComponent = {
                     <button class="zoom-btn" @click="zoomIn" :disabled="zoom >= 3">+</button>
                 </div>
                 <div class="status-right">
+                    <span class="hint-count" v-if="game.hintsRemaining >= 0">
+                        💡 提示: {{ game.hintsRemaining }}
+                    </span>
                     <span class="error-count" v-if="config.mode === 'limited'">
                         ❌ 错误: {{ game.errors }} / {{ config.errorLimit }}
+                    </span>
+                    <span class="timer" v-if="game.started && !game.complete && !game.over">
+                        ⏱️ {{ formattedTime }}
                     </span>
                     <button class="btn btn-secondary" @click="$emit('reset')">🔄 重设</button>
                 </div>
@@ -40,7 +46,7 @@ export const GameComponent = {
                 <div class="action-row">
                     <button class="action-btn" @click="undo" :disabled="stepPointer <= 0 || game.isGenerating" title="撤回">↩️</button>
                     <button class="action-btn" @click="redo" :disabled="!historyMap[stepPointer + 1] || game.isGenerating" title="重做">↪️</button>
-                    <button class="action-btn" @click="giveHint" :disabled="game.isGenerating" title="提示">💡</button>
+                    <button class="action-btn" @click="giveHint" :disabled="game.isGenerating || (game.hintsRemaining === 0)" title="提示">💡</button>
                 </div>
 
                 <div class="history-steps-container" v-if="stepKeys.length > 1">
@@ -60,6 +66,7 @@ export const GameComponent = {
                 <div class="victory-dialog">
                     <h3>🎉 恭喜完成！</h3>
                     <p>你成功解开了 {{ size }}x{{ size }} 的数独！</p>
+                    <p v-if="game.elapsedTime > 0">⏱️ 用时: {{ formatTime(game.elapsedTime) }}</p>
                     <button class="btn btn-primary" @click="$emit('back')">返回菜单</button>
                 </div>
             </div>
@@ -93,9 +100,19 @@ export const GameComponent = {
         boxSize() { return this.config.N || 3; },
         size() { return (this.config.N || 3) * (this.config.N || 3); },
         getSizeLabel() { const size = this.size; return size > 0 ? size + '×' + size : '配置中'; },
-        stepKeys() { return Object.keys(this.historyMap).map(Number).sort((a, b) => a - b); }
+        stepKeys() { return Object.keys(this.historyMap).map(Number).sort((a, b) => a - b); },
+        formattedTime() {
+            if (!this.game.startTime) return '00:00';
+            const elapsed = Math.floor((Date.now() - this.game.startTime) / 1000);
+            return this.formatTime(elapsed);
+        }
     },
     methods: {
+        formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+        },
         renderCanvas() {
             CanvasBoard.render('sudokuCanvas', this.game.board, this.size, this.boxSize, this.game.selectedRow, this.game.selectedCol, this.zoom);
         },
@@ -121,8 +138,10 @@ export const GameComponent = {
         redo() { this.movePointer(this.stepPointer + 1); },
         giveHint() {
             if (this.game.isGenerating) return;
+            if (this.game.hintsRemaining === 0) return;
             const msg = SudokuGameHelper.getHintMessage(this.game.board, this.game.selectedRow, this.game.selectedCol, this.boxSize, this.size);
-            this.$emit('update:game', { ...this.game, hintMessage: msg });
+            const newHints = this.game.hintsRemaining > 0 ? this.game.hintsRemaining - 1 : this.game.hintsRemaining;
+            this.$emit('update:game', { ...this.game, hintMessage: msg, hintsRemaining: newHints });
         },
         selectCell(r, c) {
             this.$emit('update:game', { ...this.game, selectedRow: r, selectedCol: c, hintMessage: '' });

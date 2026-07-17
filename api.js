@@ -110,12 +110,12 @@ export class PuzzleStorage {
         }
     }
 
-    static async recordChallenge(puzzleId, userId, username, completed) {
+    static async recordChallenge(puzzleId, userId, username, completed, elapsedTime) {
         try {
             const res = await fetch('/api/puzzles/challenge', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ puzzleId, userId, username, completed })
+                body: JSON.stringify({ puzzleId, userId, username, completed, elapsedTime: elapsedTime || 0 })
             });
             return await res.json();
         } catch (e) {
