@@ -1,7 +1,6 @@
 // main.js - 应用入口（单一数据源，只负责修改数据）
 const { createApp } = Vue;
 import { Pages, FormatUtils } from './util/FormatUtils.js';
-import { SudokuGenerator } from './util/SudokuGenerator.js';
 import { BoardManager } from './util/BoardManager.js';
 import { PuzzleStorage, UserSystem } from './api.js';
 import { LoginComponent } from './components/LoginComponent.js';
@@ -27,7 +26,7 @@ const app = createApp({
             viewUserId: null,
             createPuzzleMode: 'edit',
             puzzleTitle: '',
-            createBoxSize: 3,
+            puzzleBoxSize: 3,
             createMessage: '',
             createBoard: [],
             createGameBoard: [],
@@ -52,8 +51,8 @@ const app = createApp({
         blanksRange() { return FormatUtils.calcBlanksRange(this.config.boxSize); },
         boxSize() { return this.config.boxSize; },
         size() { return this.config.boxSize * this.config.boxSize; },
-        createBoxSize() { return this.createBoxSize; },
-        createSize() { return this.createBoxSize * this.createBoxSize; }
+        createBoxSize() { return this.puzzleBoxSize; },
+        createSize() { return this.puzzleBoxSize * this.puzzleBoxSize; }
     },
     watch: {
         'config.boxSize'(val) {
@@ -82,13 +81,16 @@ const app = createApp({
         _parsePuzzleStr(puzzleData) {
             const str = puzzleData.puzzle_data || puzzleData.puzzle;
             if (!str) return [];
-            if (typeof str === 'string') { try { return JSON.parse(str); } catch (e) { return []; } }
-            return Array.isArray(str) ? str : [];
+            let parsed = str;
+            while (typeof parsed === 'string') {
+                try { parsed = JSON.parse(parsed); } catch (e) { return []; }
+            }
+            return Array.isArray(parsed) ? parsed : [];
         },
         _resetCreateState() {
             this.createPuzzleMode = 'edit';
             this.puzzleTitle = '';
-            this.createBoxSize = 3;
+            this.puzzleBoxSize = 3;
             this.createMessage = '';
             this.createBoard = [];
             this.createGameBoard = [];
@@ -148,7 +150,7 @@ const app = createApp({
             this._resetCreateState();
             const parsed = this._parsePuzzleStr(puzzle);
             if (Array.isArray(parsed) && parsed.length > 0) {
-                this.createBoxSize = Math.round(Math.sqrt(parsed.length));
+                this.puzzleBoxSize = Math.round(Math.sqrt(parsed.length));
                 this.puzzleTitle = puzzle.title || '';
                 this.createBoard = parsed.map(row => [...row]);
                 this.submittedPuzzleId = puzzle.id;
@@ -281,11 +283,11 @@ const app = createApp({
             this.currentPuzzleData = null;
             this.goToPage(Pages.GAME);
             try {
-                const puzzle = await SudokuGenerator.generate(this.boxSize, this.size, this.config.blanks);
+                const puzzle = await BoardManager.generate(this.boxSize, this.size, this.config.blanks);
                 this._applyBoard(puzzle);
             } catch (e) {
                 console.error('生成失败:', e);
-                this._applyBoard(SudokuGenerator.generateSync(this.boxSize, this.size, this.config.blanks));
+                this._applyBoard(BoardManager.generateSync(this.boxSize, this.size, this.config.blanks));
             }
         },
         _applyBoard(puzzle) {
@@ -318,7 +320,7 @@ const app = createApp({
         // ===== 游戏重置 =====
         resetGame() {
             if (this.game.isGenerating) return;
-            SudokuGenerator.abort();
+            BoardManager.abort();
             this.game = { ...FormatUtils.createDefaultState(), hintMessage: '' };
             this.goToPage(Pages.MAIN_MENU);
         },

@@ -1,6 +1,6 @@
 // GameComponent.js - 游戏组件（纯 UI 层，所有操作 emit 给父组件）
 import { FormatUtils } from '../util/FormatUtils.js';
-import { BoardMixin } from '../util/BoardMixin.js';
+import { BoardMixin } from '../util/BoardManager.js';
 
 export const GameComponent = {
     mixins: [BoardMixin],

@@ -1,7 +1,6 @@
 // CreatePuzzleComponent.js - 出题组件（纯 UI 层，所有操作 emit 给父组件）
 import { FormatUtils } from '../util/FormatUtils.js';
-import { BoardMixin } from '../util/BoardMixin.js';
-import { BoardManager } from '../util/BoardManager.js';
+import { BoardManager, BoardMixin } from '../util/BoardManager.js';
 
 export const CreatePuzzleComponent = {
     mixins: [BoardMixin],
