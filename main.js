@@ -259,8 +259,7 @@ const app = createApp({
                 : PuzzleStorage.add(this.currentUser.id, this.currentUser.username, puzzle, solution, this.createSize, this.createBoxSize, title);
             const saveResult = await saveFn;
             if (saveResult.success) {
-                await new Promise(r => setTimeout(r, 1500));
-                this.goToMyPuzzles();
+                if (saveResult.puzzle) this.submittedPuzzleId = saveResult.puzzle.id;
             } else {
                 this.createMessage = saveResult.message || '保存失败';
             }

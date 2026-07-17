@@ -65,7 +65,7 @@ export const CreatePuzzleComponent = {
                 <button class="btn btn-primary" @click="submitPuzzle" :disabled="!isComplete">📤 提交题目</button>
             </div>
             
-            <div v-if="createMessage" class="auth-message" :class="{ success: createMessage.includes('成功') || createMessage.includes('通过') }">{{ createMessage }}</div>
+            <div v-if="createMessage && !submitSuccess" class="auth-message">{{ createMessage }}</div>
             
             <div class="victory-overlay" v-if="showVictory">
                 <div class="victory-dialog">
@@ -73,6 +73,14 @@ export const CreatePuzzleComponent = {
                     <p>你成功解开了自己出的数独！</p>
                     <button class="btn btn-primary" @click="submitPuzzle">📤 提交题目</button>
                     <button class="btn btn-secondary" style="margin-top:8px;" @click="$emit('back-to-edit')">返回修改</button>
+                </div>
+            </div>
+
+            <div class="victory-overlay" v-if="submittedPuzzleId && submitSuccess">
+                <div class="victory-dialog">
+                    <h3>✅ 提交成功！</h3>
+                    <p>题目已成功保存</p>
+                    <button class="btn btn-primary" @click="$emit('back')">返回主页面</button>
                 </div>
             </div>
         </div>
@@ -94,7 +102,7 @@ export const CreatePuzzleComponent = {
     },
     emits: [
         'back', 'saved',
-        'update:puzzleN', 'update:puzzleTitle',
+        'update:puzzleN', 'update:puzzleTitle', 'update:zoom',
         'cell-click', 'input-number', 'clear-selected', 'undo', 'redo',
         'clear-board', 'start-solving', 'back-to-edit',
         'submit-puzzle', 'submit-error'
@@ -110,6 +118,9 @@ export const CreatePuzzleComponent = {
         },
         passRate() {
             return FormatUtils.calcPassRate(this.stats);
+        },
+        submitSuccess() {
+            return this.createMessage && this.createMessage.includes('成功');
         }
     },
     methods: {

@@ -72,6 +72,7 @@
             @clear-board="onCreateClearBoard"
             @start-solving="onCreateStartSolving"
             @back-to-edit="onCreateBackToEdit"
+            @update:zoom="zoom = $event"
             @submit-puzzle="onCreateSubmitPuzzle"
             @submit-error="createMessage = $event"
         ></create-puzzle-component>
