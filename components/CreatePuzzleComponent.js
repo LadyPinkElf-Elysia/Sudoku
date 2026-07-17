@@ -66,9 +66,25 @@ export const CreatePuzzleComponent = {
                 <button class="btn btn-primary" @click="submitPuzzle" :disabled="!isComplete">📤 提交题目</button>
             </div>
             
-            <div v-if="createMessage" class="auth-message">{{ createMessage }}</div>
+            <div v-if="createMessage && !submitSuccess" class="auth-message">{{ createMessage }}</div>
             
+            <div class="victory-overlay" v-if="showVictory">
+                <div class="victory-dialog">
+                    <h3>🎉 恭喜完成！</h3>
+                    <p>你成功解开了自己出的数独！</p>
+                    <button class="btn btn-primary" @click="submitPuzzle">📤 提交题目</button>
+                    <button class="btn btn-secondary" style="margin-top:8px;" @click="$emit('back-to-edit')">返回修改</button>
+                </div>
             </div>
+
+            <div class="victory-overlay" v-if="submittedPuzzleId && submitSuccess">
+                <div class="victory-dialog">
+                    <h3>✅ 提交成功！</h3>
+                    <p>题目已成功保存</p>
+                    <button class="btn btn-primary" @click="$emit('back')">返回主页面</button>
+                </div>
+            </div>
+        </div>
     `,
     props: {
         currentUser: { type: Object, required: true },
@@ -97,6 +113,9 @@ export const CreatePuzzleComponent = {
         isComplete() { return BoardManager.isBoardComplete(this.gameBoard); },
         passRate() {
             return FormatUtils.calcPassRate(this.stats);
+        },
+        submitSuccess() {
+            return this.createMessage === 'success';
         }
     },
     methods: {
@@ -155,5 +174,3 @@ export const CreatePuzzleComponent = {
         this._unbindCanvas();
     }
 };
-
-
