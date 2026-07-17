@@ -235,9 +235,11 @@ const app = createApp({
         _isValidPuzzle(puzzle) {
             const str = puzzle.puzzle_data || puzzle.puzzle;
             if (!str) return false;
-            let parsed;
-            if (typeof str === 'string') { try { parsed = JSON.parse(str); } catch (e) { return false; } }
-            else { parsed = str; }
+            let parsed = str;
+            // 处理可能的双重 JSON 编码
+            while (typeof parsed === 'string') {
+                try { parsed = JSON.parse(parsed); } catch (e) { return false; }
+            }
             return Array.isArray(parsed) && parsed.length > 0 && parsed.every(row => Array.isArray(row) && row.length === parsed.length);
         },
         async _loadPuzzleStats(puzzles) {
