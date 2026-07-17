@@ -1,6 +1,5 @@
 // GameStateManager.js - 游戏状态管理（静态方法，通用）
-import { SudokuGameHelper } from './SudokuGameHelper.js';
-import { SudokuGridHelper } from './SudokuGrid.js';
+import { BoardManager } from './BoardManager.js';
 
 export class GameStateManager {
     /**
@@ -44,7 +43,7 @@ export class GameStateManager {
      * 初始化游戏（从谜题创建棋盘）
      */
     static initGame(puzzle) {
-        const board = SudokuGameHelper.createBoard(puzzle);
+        const board = BoardManager.createBoardFromPuzzle(puzzle);
         return {
             board,
             selectedRow: null,
@@ -88,23 +87,15 @@ export class GameStateManager {
         const cell = game.board[row][col];
         if (!cell.editable) return null;
 
-        // 保存历史
-        const { newHistoryMap, newStepPointer } = SudokuGameHelper.saveState(
-            history.historyMap, history.stepPointer, game.board
-        );
+        // 使用 BoardManager 操作格子
+        const result = BoardManager.operateCell(game.board, row, col, updateFn, {
+            boxSize: config.N,
+            size: config.N * config.N,
+            history
+        });
+        if (!result) return null;
 
-        // 执行操作
-        updateFn(cell);
-
-        const BOX_SIZE = config.N;
-        const SIZE = config.N * config.N;
-
-        // 更新冲突
-        const messages = SudokuGridHelper.updateConflictsLocal(
-            game.board, row, col, BOX_SIZE, SIZE
-        );
-
-        let newGame = { ...game, conflictMessages: messages, hintMessage: '' };
+        let newGame = { ...game, board: result.board, conflictMessages: result.conflictMessages, hintMessage: '' };
 
         // 错误计数（有限模式）
         if (cell.conflict && config.mode === 'limited') {
@@ -117,14 +108,14 @@ export class GameStateManager {
         }
 
         // 检查完成
-        if (SudokuGridHelper.checkComplete(game.board, SIZE)) {
+        if (result.complete) {
             newGame.complete = true;
             newGame.selectedRow = null;
             newGame.selectedCol = null;
             newGame.hintMessage = '';
         }
 
-        return { newGame, newHistoryMap, newStepPointer };
+        return { newGame, newHistoryMap: result.historyMap, newStepPointer: result.stepPointer };
     }
 
     /**

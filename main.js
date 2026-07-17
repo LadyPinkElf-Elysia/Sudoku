@@ -1,10 +1,9 @@
 // main.js - 应用入口（单一数据源，只负责修改数据）
 const { createApp } = Vue;
-import { Pages } from './util/Pages.js';
+import { Pages } from './util/FormatUtils.js';
 import { SudokuGenerator } from './util/SudokuGenerator.js';
 import { GameStateManager } from './util/GameStateManager.js';
-import { SudokuGameHelper } from './util/SudokuGameHelper.js';
-import { SudokuGridHelper } from './util/SudokuGrid.js';
+import { BoardManager } from './util/BoardManager.js';
 import { PuzzleStorage, UserSystem } from './api.js';
 import { LoginComponent } from './components/LoginComponent.js';
 import { MainMenuComponent } from './components/MainMenuComponent.js';
@@ -180,14 +179,7 @@ const app = createApp({
 
         // ===== CreatePuzzle 操作 =====
         _initCreateBoard() {
-            const size = this.createSize;
-            this.createBoard = Array.from({ length: size }, () => Array(size).fill(0));
-        },
-        _serializeCreateBoard(includeMeta = false) {
-            return this.createGameBoard.map(row => row.map(cell => {
-                const base = { value: cell.value, editable: cell.editable };
-                return includeMeta ? { ...base, conflict: false, given: cell.given } : base;
-            }));
+            this.createBoard = BoardManager.createEmptyBoard(this.createSize);
         },
         _createOperateCell(updateFn) {
             if (this.createSelectedRow === null || this.createSelectedCol === null) return;
@@ -196,16 +188,19 @@ const app = createApp({
                 updateFn(this.createBoard[r], c);
             } else {
                 if (this.createGameBoard[r][c].given) return;
-                const result = SudokuGameHelper.saveState(this.createHistoryMap, this.createStepPointer,
-                    this._serializeCreateBoard());
-                this.createHistoryMap = result.newHistoryMap;
-                this.createStepPointer = result.newStepPointer;
-                updateFn(this.createGameBoard[r], c);
-                this.createGameBoard[r][c].conflict = false;
-                SudokuGridHelper.updateConflictsLocal(this.createGameBoard, r, c, this.createBoxSize, this.createSize);
-                if (SudokuGridHelper.checkComplete(this.createGameBoard, this.createSize)) {
-                    this.createShowVictory = true;
-                }
+                const result = BoardManager.operateCell(
+                    this.createGameBoard, r, c, updateFn,
+                    {
+                        boxSize: this.createBoxSize,
+                        size: this.createSize,
+                        history: { historyMap: this.createHistoryMap, stepPointer: this.createStepPointer }
+                    }
+                );
+                if (!result) return;
+                this.createGameBoard = result.board;
+                this.createHistoryMap = result.historyMap;
+                this.createStepPointer = result.stepPointer;
+                if (result.complete) this.createShowVictory = true;
             }
         },
         onCreateCellClick(row, col) {
@@ -227,9 +222,9 @@ const app = createApp({
         },
         _moveCreatePointer(targetStep) {
             this.createStepPointer = targetStep;
-            const board = this._serializeCreateBoard(true);
-            const result = SudokuGameHelper.navigateHistory(board, this.createHistoryMap, targetStep, this.createBoxSize, this.createSize);
-            if (result) this.createGameBoard = board;
+            const board = BoardManager.serializeBoard(this.createGameBoard, true);
+            const result = BoardManager.navigateHistory(board, this.createHistoryMap, targetStep, this.createBoxSize, this.createSize);
+            if (result) this.createGameBoard = result.board;
         },
         onCreateClearBoard() {
             this._initCreateBoard();
@@ -239,9 +234,7 @@ const app = createApp({
             this.createShowVictory = false;
         },
         onCreateStartSolving() {
-            this.createGameBoard = this.createBoard.map(row =>
-                row.map(v => ({ value: v, editable: v === 0, conflict: false, given: v !== 0 }))
-            );
+            this.createGameBoard = BoardManager.createBoardFromPuzzle(this.createBoard);
             this.createHistoryMap = {};
             this.createStepPointer = -1;
             this.createSelectedRow = null;
@@ -260,6 +253,7 @@ const app = createApp({
             const saveResult = await saveFn;
             if (saveResult.success) {
                 if (saveResult.puzzle) this.submittedPuzzleId = saveResult.puzzle.id;
+                this.createMessage = 'success';
             } else {
                 this.createMessage = saveResult.message || '保存失败';
             }
@@ -366,14 +360,14 @@ const app = createApp({
         },
         _movePointer(targetStep) {
             this.stepPointer = targetStep;
-            const result = SudokuGameHelper.navigateHistory(this.game.board, this.historyMap, targetStep, this.boxSize, this.size);
+            const result = BoardManager.navigateHistory(this.game.board, this.historyMap, targetStep, this.boxSize, this.size);
             if (result) {
-                this.game = { ...this.game, conflictMessages: result.messages, selectedRow: null, selectedCol: null, hintMessage: '' };
+                this.game = { ...this.game, board: result.board, conflictMessages: result.messages, selectedRow: null, selectedCol: null, hintMessage: '' };
             }
         },
         onGiveHint() {
             if (this.game.isGenerating || this.game.hintsRemaining === 0) return;
-            const msg = SudokuGameHelper.getHintMessage(this.game.board, this.game.selectedRow, this.game.selectedCol, this.boxSize, this.size);
+            const msg = BoardManager.getHint(this.game.board, this.game.selectedRow, this.game.selectedCol, this.boxSize, this.size);
             const newHints = this.game.hintsRemaining > 0 ? this.game.hintsRemaining - 1 : this.game.hintsRemaining;
             this.game = { ...this.game, hintMessage: msg, hintsRemaining: newHints };
         },

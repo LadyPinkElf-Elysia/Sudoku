@@ -1,6 +1,7 @@
-// SudokuGrid.js - 数独网格工具函数 + 网格操作（合并版）
+// SudokuGrid.js - 数独网格工具 + 游戏辅助功能（合并版）
+
+// ===== 网格工具 =====
 export const GridUtils = {
-    // 获取宫格起始行列
     boxStart(row, col, BOX_SIZE) {
         return {
             r: Math.floor(row / BOX_SIZE) * BOX_SIZE,
@@ -8,7 +9,6 @@ export const GridUtils = {
         };
     },
 
-    // 坐标生成器
     *rowCoords(row, SIZE) {
         for (let c = 0; c < SIZE; c++) yield { r: row, c };
     },
@@ -32,7 +32,6 @@ export const GridUtils = {
                 yield { r, c };
     },
 
-    // 遍历格子，对每个值调用 fn(val, r, c)，fn 返回 true 时提前终止
     each(grid, coords, fn, ...args) {
         for (const { r, c } of coords(...args)) {
             if (fn(grid[r][c], r, c)) return true;
@@ -40,7 +39,6 @@ export const GridUtils = {
         return false;
     },
 
-    // 检查一组格子是否有重复值
     hasDuplicate(grid, coords, ...args) {
         const set = new Set();
         return GridUtils.each(grid, coords, (val) => {
@@ -52,7 +50,6 @@ export const GridUtils = {
         }, ...args);
     },
 
-    // 验证整个数独
     validate(grid, BOX_SIZE, SIZE) {
         for (let r = 0; r < SIZE; r++)
             if (GridUtils.hasDuplicate(grid, GridUtils.rowCoords, r, SIZE)) return false;
@@ -66,7 +63,6 @@ export const GridUtils = {
         return true;
     },
 
-    // 随机打乱数组
     shuffle(arr) {
         for (let i = arr.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -74,7 +70,6 @@ export const GridUtils = {
         }
     },
 
-    // 填充对角线宫格
     fillDiagonalBoxes(grid, BOX_SIZE, SIZE) {
         for (let b = 0; b < SIZE; b += (BOX_SIZE + 1)) {
             const sr = Math.floor(b / BOX_SIZE) * BOX_SIZE;
@@ -88,7 +83,6 @@ export const GridUtils = {
         }
     },
 
-    // 检查某个位置放某个数是否合法
     isValid(grid, row, col, num, BOX_SIZE, SIZE) {
         for (let i = 0; i < SIZE; i++) {
             if (grid[row][i] === num || grid[i][col] === num) return false;
@@ -100,7 +94,6 @@ export const GridUtils = {
         return true;
     },
 
-    // 获取某个格子的候选数
     getCandidates(grid, row, col, BOX_SIZE, SIZE) {
         if (grid[row][col] !== 0) return [];
         const candidates = [];
@@ -112,7 +105,6 @@ export const GridUtils = {
         return candidates;
     },
 
-    // MRV 回溯求解（直接修改 grid）
     solve(grid, BOX_SIZE, SIZE) {
         let minCount = SIZE + 1, bestR = -1, bestC = -1, bestCandidates = [];
         
@@ -142,7 +134,6 @@ export const GridUtils = {
         return false;
     },
 
-    // 生成数独
     generateSolution(BOX_SIZE, SIZE) {
         const maxAttempts = SIZE <= 9 ? 10 : 50;
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -152,7 +143,6 @@ export const GridUtils = {
                 if (GridUtils.validate(grid, BOX_SIZE, SIZE)) return grid;
             }
         }
-        // 最后尝试：使用确定性填充（不随机）
         const grid = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
         for (let b = 0; b < SIZE; b += (BOX_SIZE + 1)) {
             const sr = Math.floor(b / BOX_SIZE) * BOX_SIZE;
@@ -168,7 +158,6 @@ export const GridUtils = {
         return Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
     },
 
-    // 创建谜题（挖空）
     createPuzzle(solution, blanks) {
         const puzzle = solution.map(row => [...row]);
         const SIZE = puzzle.length;
@@ -207,7 +196,6 @@ export const GridUtils = {
         return puzzle;
     },
 
-    // 查找一组格子中的重复值及其位置
     findDuplicates(grid, coords, ...args) {
         const posMap = {};
         GridUtils.each(grid, coords, (val, r, c) => {
@@ -227,21 +215,18 @@ export const GridUtils = {
     }
 };
 
-// SudokuGridHelper - 网格操作
+// ===== 网格操作 =====
 export class SudokuGridHelper {
-    // 获取网格快照
     static getGridSnapshot(board) {
         return board.map(row => row.map(cell => cell.value));
     }
 
-    // 同步冲突状态
     static syncConflicts(board, conflictMap) {
         for (const { r, c } of GridUtils.allCoords(board.length)) {
             board[r][c].conflict = conflictMap[r][c];
         }
     }
 
-    // 更新局部冲突
     static updateConflictsLocal(board, row, col, BOX_SIZE, SIZE) {
         const { r: boxStartR, c: boxStartC } = GridUtils.boxStart(row, col, BOX_SIZE);
         const grid = SudokuGridHelper.getGridSnapshot(board);
@@ -274,7 +259,6 @@ export class SudokuGridHelper {
         return messages;
     }
 
-    // 检查是否完成
     static checkComplete(board, SIZE) {
         for (let r = 0; r < SIZE; r++) {
             for (let c = 0; c < SIZE; c++) {
@@ -283,5 +267,167 @@ export class SudokuGridHelper {
             }
         }
         return true;
+    }
+}
+
+// ===== 游戏辅助功能 =====
+export class SudokuGameHelper {
+    // 历史记录管理
+    static saveState(historyMap, stepPointer, board) {
+        stepPointer++;
+        const snapshot = board.map(row => row.map(cell => ({
+            value: cell.value,
+            editable: cell.editable
+        })));
+        const newMap = { ...historyMap, [stepPointer]: snapshot };
+        const keys = Object.keys(newMap).map(Number);
+        for (let key of keys) {
+            if (key > stepPointer) delete newMap[key];
+        }
+        return { newStepPointer: stepPointer, newHistoryMap: newMap };
+    }
+
+    static applyHistory(board, snapshot, BOX_SIZE, SIZE) {
+        for (let r = 0; r < SIZE; r++) {
+            for (let c = 0; c < SIZE; c++) {
+                board[r][c].value = snapshot[r][c].value;
+                board[r][c].editable = snapshot[r][c].editable;
+                board[r][c].conflict = false;
+            }
+        }
+        return SudokuGameHelper.refreshAllConflicts(board, BOX_SIZE, SIZE);
+    }
+
+    // 冲突管理
+    static generateRegions(BOX_SIZE, SIZE) {
+        const regions = [];
+        for (let r = 1; r <= SIZE; r++) {
+            regions.push({ r1: r, c1: 1, r2: r, c2: SIZE, label: `第${r}行` });
+        }
+        for (let c = 1; c <= SIZE; c++) {
+            regions.push({ r1: 1, c1: c, r2: SIZE, c2: c, label: `第${c}列` });
+        }
+        for (let b = 0; b < SIZE; b++) {
+            const startR = Math.floor(b / BOX_SIZE) * BOX_SIZE + 1;
+            const startC = (b % BOX_SIZE) * BOX_SIZE + 1;
+            regions.push({
+                r1: startR, c1: startC,
+                r2: startR + BOX_SIZE - 1, c2: startC + BOX_SIZE - 1,
+                label: `第${Math.floor(b / BOX_SIZE) + 1}行第${(b % BOX_SIZE) + 1}列的宫`
+            });
+        }
+        return regions;
+    }
+
+    static refreshAllConflicts(board, BOX_SIZE, SIZE) {
+        const grid = SudokuGridHelper.getGridSnapshot(board);
+        const conflictMap = Array.from({ length: SIZE }, () => Array(SIZE).fill(false));
+        const messages = [];
+        const regions = SudokuGameHelper.generateRegions(BOX_SIZE, SIZE);
+
+        for (let region of regions) {
+            const result = GridUtils.findDuplicates(grid, GridUtils.rectCoords, region.r1 - 1, region.c1 - 1, region.r2 - 1, region.c2 - 1);
+            result.conflicts.forEach(p => conflictMap[p.r][p.c] = true);
+            [...new Set(result.duplicateValues)].forEach(val => {
+                messages.push(`${region.label}有重复的数字 ${val}`);
+            });
+        }
+
+        SudokuGridHelper.syncConflicts(board, conflictMap);
+        return { messages };
+    }
+
+    // 提示
+    static getHint(board, row, col, BOX_SIZE, SIZE) {
+        if (board[row][col].value !== 0) return [];
+        const grid = SudokuGridHelper.getGridSnapshot(board);
+        return GridUtils.getCandidates(grid, row, col, BOX_SIZE, SIZE);
+    }
+
+    // 游戏逻辑
+    static createBoard(puzzle) {
+        return puzzle.map(row => row.map(val => ({
+            value: val,
+            editable: val === 0,
+            conflict: false
+        })));
+    }
+
+    static navigateHistory(board, historyMap, targetStep, BOX_SIZE, SIZE) {
+        if (!historyMap[targetStep]) return null;
+        const result = SudokuGameHelper.applyHistory(board, historyMap[targetStep], BOX_SIZE, SIZE);
+        return { messages: result.messages };
+    }
+
+    // 题目验证
+    static validateSolution(solution, BOX_SIZE, SIZE) {
+        if (!solution || solution.length !== SIZE) {
+            return { valid: false, message: `题目尺寸不正确，应为 ${SIZE}×${SIZE}` };
+        }
+        for (let r = 0; r < SIZE; r++) {
+            if (!solution[r] || solution[r].length !== SIZE) {
+                return { valid: false, message: `第${r + 1}行尺寸不正确` };
+            }
+        }
+
+        for (let r = 0; r < SIZE; r++) {
+            for (let c = 0; c < SIZE; c++) {
+                const val = solution[r][c];
+                if (typeof val !== 'number' || val < 0 || val > SIZE || !Number.isInteger(val)) {
+                    return { valid: false, message: `第${r + 1}行第${c + 1}列的值 ${val} 不合法（应为 0-${SIZE} 的整数）` };
+                }
+            }
+        }
+
+        for (let r = 0; r < SIZE; r++) {
+            const set = new Set();
+            for (let c = 0; c < SIZE; c++) {
+                const val = solution[r][c];
+                if (val === 0) continue;
+                if (set.has(val)) return { valid: false, message: `第${r + 1}行有重复的数字 ${val}` };
+                set.add(val);
+            }
+        }
+
+        for (let c = 0; c < SIZE; c++) {
+            const set = new Set();
+            for (let r = 0; r < SIZE; r++) {
+                const val = solution[r][c];
+                if (val === 0) continue;
+                if (set.has(val)) return { valid: false, message: `第${c + 1}列有重复的数字 ${val}` };
+                set.add(val);
+            }
+        }
+
+        for (let b = 0; b < SIZE; b++) {
+            const sr = Math.floor(b / BOX_SIZE) * BOX_SIZE;
+            const sc = (b % BOX_SIZE) * BOX_SIZE;
+            const set = new Set();
+            for (let r = sr; r < sr + BOX_SIZE; r++) {
+                for (let c = sc; c < sc + BOX_SIZE; c++) {
+                    const val = solution[r][c];
+                    if (val === 0) continue;
+                    if (set.has(val)) return { valid: false, message: `第${Math.floor(b / BOX_SIZE) + 1}行第${(b % BOX_SIZE) + 1}列的宫有重复的数字 ${val}` };
+                    set.add(val);
+                }
+            }
+        }
+
+        const grid = solution.map(row => [...row]);
+        const hasSolution = GridUtils.solve(grid, BOX_SIZE, SIZE);
+        if (!hasSolution) return { valid: false, message: '此题目无解，请检查题目设置' };
+
+        return { valid: true, message: '✅ 题目验证通过！' };
+    }
+
+    static getHintMessage(board, row, col, BOX_SIZE, SIZE) {
+        if (row === null || col === null) return '💡 请先在棋盘上点击选中一个空格';
+        const cell = board[row][col];
+        if (!cell.editable) return '💡 此格是初始题目，不可编辑';
+        if (cell.value !== 0) return '💡 此格已填入数字';
+        const candidates = SudokuGameHelper.getHint(board, row, col, BOX_SIZE, SIZE);
+        return candidates.length === 0
+            ? '💡 此格当前没有任何合法数字可以填入，请检查盘面是否有冲突'
+            : `💡 此格可以填：${candidates.join('、')}`;
     }
 }

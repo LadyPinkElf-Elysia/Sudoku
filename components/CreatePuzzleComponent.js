@@ -1,6 +1,7 @@
 // CreatePuzzleComponent.js - 出题组件（纯 UI 层，所有操作 emit 给父组件）
 import { FormatUtils } from '../util/FormatUtils.js';
 import { BoardMixin } from '../util/BoardMixin.js';
+import { BoardManager } from '../util/BoardManager.js';
 
 export const CreatePuzzleComponent = {
     mixins: [BoardMixin],
@@ -120,14 +121,14 @@ export const CreatePuzzleComponent = {
             return FormatUtils.calcPassRate(this.stats);
         },
         submitSuccess() {
-            return this.createMessage && this.createMessage.includes('成功');
+            return this.createMessage === 'success';
         }
     },
     methods: {
         // ===== BoardMixin 实现（只读，不修改数据） =====
         _getBoard() {
             if (this.createPuzzleMode === 'edit') {
-                return this.board.map(row => row.map(v => ({ value: v, editable: true, conflict: false, given: false })));
+                return BoardManager.toObjectBoard(this.board);
             }
             return this.gameBoard;
         },

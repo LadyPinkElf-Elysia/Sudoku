@@ -1,8 +1,15 @@
-// FormatUtils.js - 通用格式化工具（静态方法）
+// FormatUtils.js - 通用工具（格式化 + 页面常量）
+export const Pages = Object.freeze({
+    LOGIN: 'login',
+    MAIN_MENU: 'mainMenu',
+    CONFIG: 'config',
+    GAME: 'game',
+    CREATE_PUZZLE: 'createPuzzle',
+    SEARCH_PUZZLES: 'searchPuzzles',
+    MY_PUZZLES: 'myPuzzles'
+});
+
 export class FormatUtils {
-    /**
-     * 格式化秒数为 MM:SS
-     */
     static formatTime(seconds) {
         if (!seconds || seconds <= 0) return '00:00';
         const m = Math.floor(seconds / 60);
@@ -10,13 +17,9 @@ export class FormatUtils {
         return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
     }
 
-    /**
-     * 计算通过率
-     */
     static calcPassRate(stats) {
         if (!stats || stats.totalChallenges === 0) return '暂无';
         const rate = (stats.completedChallenges / stats.totalChallenges * 100).toFixed(1);
         return rate + '%';
     }
-
 }

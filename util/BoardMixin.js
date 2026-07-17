@@ -1,7 +1,5 @@
 // BoardMixin.js - 棋盘组件通用逻辑（缩放、Canvas、键盘、历史）
-import { SudokuGameHelper } from './SudokuGameHelper.js';
-import { handleSudokuKeyDown } from './SudokuRenderer.js';
-import { CanvasBoard } from './CanvasBoard.js';
+import { BoardManager } from './BoardManager.js';
 
 export const BoardMixin = {
     props: {
@@ -32,25 +30,25 @@ export const BoardMixin = {
             const canvasId = this._canvasId || 'sudokuCanvas';
             const board = this._getBoard();
             if (!board || !board.length) return;
-            CanvasBoard.render(canvasId, board, this.size, this.boxSize, this._getSelectedRow(), this._getSelectedCol(), this.zoom);
+            BoardManager.render(canvasId, board, this.size, this.boxSize, this._getSelectedRow(), this._getSelectedCol(), this.zoom);
         },
         _onCanvasClick(e) {
             const canvasId = this._canvasId || 'sudokuCanvas';
-            const pos = CanvasBoard.getCellFromClick(e, canvasId, this.size);
+            const pos = BoardManager.getCellFromClick(e, canvasId, this.size);
             if (pos) this._onCellClick(pos.row, pos.col);
         },
         _bindCanvas() {
             const canvasId = this._canvasId || 'sudokuCanvas';
             this._clickHandler = (e) => this._onCanvasClick(e);
             this.$nextTick(() => {
-                CanvasBoard.bindClick(this._clickHandler, canvasId);
+                BoardManager.bindClick(this._clickHandler, canvasId);
                 this._renderBoard();
             });
         },
         _unbindCanvas() {
             const canvasId = this._canvasId || 'sudokuCanvas';
             if (this._clickHandler) {
-                CanvasBoard.unbindClick(this._clickHandler, canvasId);
+                BoardManager.unbindClick(this._clickHandler, canvasId);
                 this._clickHandler = null;
             }
         },
@@ -60,7 +58,7 @@ export const BoardMixin = {
         _unbindKeyboard() { document.removeEventListener('keydown', this._handleKeyDown); },
         _handleKeyDown(e) {
             const state = this._getGameState ? this._getGameState() : {};
-            handleSudokuKeyDown(e, {
+            BoardManager.handleKeyDown(e, {
                 started: true, isGenerating: state.isGenerating || false, complete: state.complete || false, over: state.over || false,
                 SIZE: this.size, selectedRow: this._getSelectedRow(), selectedCol: this._getSelectedCol()
             }, {
@@ -74,7 +72,7 @@ export const BoardMixin = {
 
         // ===== 历史记录 =====
         _saveState() {
-            const result = SudokuGameHelper.saveState(this.historyMap, this.stepPointer, this._getBoard());
+            const result = BoardManager.saveHistory(this.historyMap, this.stepPointer, this._getBoard());
             this._onSaveState(result.newHistoryMap, result.newStepPointer);
         },
         _onUndo() { if (this.stepPointer > 0) this._onMovePointer(this.stepPointer - 1); },
