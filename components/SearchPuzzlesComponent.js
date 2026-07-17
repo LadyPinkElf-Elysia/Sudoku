@@ -15,7 +15,7 @@ export const SearchPuzzlesComponent = {
             <div v-if="displayMessage" class="auth-message" :class="{ success: displayMessage.includes('道题目') }">{{ displayMessage }}</div>
             
             <div v-if="searchResults.length > 0" class="card-list">
-                    <div v-for="puzzle in searchResults" :key="puzzle.id" class="puzzle-card" @click="startPuzzle(puzzle)">
+                    <div v-for="puzzle in searchResults" :key="puzzle.id" class="puzzle-card">
                         <div class="card-header">
                             <span class="puzzle-id">#{{ puzzle.id }}</span>
                             <span class="puzzle-size">{{ puzzle.size || puzzle.SIZE }}×{{ puzzle.size || puzzle.SIZE }}</span>
@@ -29,6 +29,9 @@ export const SearchPuzzlesComponent = {
                             <span v-if="puzzle.stats.avgTime > 0">⏱️ {{ puzzle.stats.avgTimeFormatted }}</span>
                         </div>
                         <div class="card-date">{{ new Date(puzzle.created_at || puzzle.createdAt).toLocaleDateString() }}</div>
+                        <div class="card-actions">
+                            <button class="btn btn-primary btn-sm" @click="startPuzzle(puzzle)">🚀 挑战</button>
+                        </div>
                     </div>
             </div>
             
@@ -42,7 +45,7 @@ export const SearchPuzzlesComponent = {
         searchResults: { type: Array, default: () => [] },
         message: { type: String, default: '' }
     },
-    emits: ['back', 'start-puzzle', 'view-user-puzzles', 'search', 'update:searchQuery', 'start-puzzle-error'],
+    emits: ['back', 'start-puzzle', 'view-user-puzzles', 'search', 'update:searchQuery'],
     computed: {
         displayMessage() {
             if (this.message) return this.message;
@@ -52,17 +55,6 @@ export const SearchPuzzlesComponent = {
     },
     methods: {
         startPuzzle(puzzle) {
-            const str = puzzle.puzzle_data || puzzle.puzzle;
-            let parsed;
-            if (typeof str === 'string') {
-                try { parsed = JSON.parse(str); } catch (e) { parsed = []; }
-            } else {
-                parsed = str;
-            }
-            if (!Array.isArray(parsed) || parsed.length === 0) {
-                this.$emit('start-puzzle-error', '题目数据无效，无法开始游戏');
-                return;
-            }
             this.$emit('start-puzzle', puzzle);
         }
     }
