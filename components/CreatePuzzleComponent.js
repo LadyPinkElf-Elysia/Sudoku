@@ -27,9 +27,15 @@ export const CreatePuzzleComponent = {
                     <input type="text" v-model="puzzleTitle" placeholder="给题目起个名字" style="width:100%;max-width:300px;">
                 </div>
             </div>
+
+            <div class="zoom-controls" style="margin-bottom:8px;">
+                <button class="zoom-btn" @click="zoomOut" :disabled="zoom <= 0.5">−</button>
+                <span class="zoom-text">{{ Math.round(zoom * 100) || 100 }}%</span>
+                <button class="zoom-btn" @click="zoomIn" :disabled="zoom >= 3">+</button>
+            </div>
             
             <div class="board-scroll-container">
-                <div class="board-wrapper" style="width:100%;height:100%">
+                <div class="board-wrapper" :style="{ width: (100 * zoom) + '%', height: (100 * zoom) + '%', transform: 'scale(' + zoom + ')', transformOrigin: '0 0' }">
                     <canvas id="createCanvas" class="board-canvas"></canvas>
                 </div>
             </div>
@@ -83,7 +89,8 @@ export const CreatePuzzleComponent = {
             selectedCol: null,
             historyMap: {},
             stepPointer: -1,
-            showVictory: false
+            showVictory: false,
+            zoom: 1.0
         };
     },
     computed: {
@@ -106,13 +113,14 @@ export const CreatePuzzleComponent = {
             this.selectedCol = null;
             this.mode = 'edit';
             this.showVictory = false;
+            this.zoom = 1.0;
             this.$nextTick(() => this.renderCanvas());
         },
         renderCanvas() {
             const board = this.mode === 'edit'
                 ? this.board.map(row => row.map(v => ({ value: v, editable: true, conflict: false, given: false })))
                 : this.gameBoard;
-            CanvasBoard.render('createCanvas', board, this.SIZE, this.BOX_SIZE, this.selectedRow, this.selectedCol, 1.0);
+            CanvasBoard.render('createCanvas', board, this.SIZE, this.BOX_SIZE, this.selectedRow, this.selectedCol, this.zoom);
         },
         onCanvasClick(e) {
             const pos = CanvasBoard.getCellFromClick(e, 'createCanvas', this.SIZE);
@@ -225,7 +233,7 @@ export const CreatePuzzleComponent = {
         async submitPuzzle() {
             this.message = '';
             const puzzle = this.board.map(row => [...row]);
-            if (!this.hasPuzzle) { this.message = '请在棋盘上输入题目'; return; }
+            if (!this.hasPuzzle) { this.message = '请在棋盘上输入数字'; return; }
             const SIZE = puzzle.length;
             const BOX_SIZE = this.puzzleN;
             const solution = this.gameBoard.map(row => row.map(cell => cell.value));
@@ -239,6 +247,14 @@ export const CreatePuzzleComponent = {
             } else {
                 this.message = saveResult.message || '保存失败，请重试';
             }
+        },
+        zoomIn() {
+            this.zoom = Math.min(3.0, this.zoom + 0.1);
+            this.$nextTick(() => this.renderCanvas());
+        },
+        zoomOut() {
+            this.zoom = Math.max(0.5, this.zoom - 0.1);
+            this.$nextTick(() => this.renderCanvas());
         },
         handleKeyDown(e) {
             handleSudokuKeyDown(e, {
