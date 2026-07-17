@@ -19,8 +19,6 @@ const app = createApp({
             historyMap: {},
             stepPointer: -1,
             zoom: 1.0,
-            BOX_SIZE: 0,
-            SIZE: 0,
             currentPuzzleData: null
         };
     },
@@ -57,13 +55,9 @@ const app = createApp({
         async startFromConfig() {
             if (this.game.isGenerating) return;
 
-            let blanks = this.config.blanks !== null ? this.config.blanks : this.minBlanks;
-            const { min, max } = this.blanksRange;
-            blanks = GameStateManager.validateBlanks(blanks, min, max);
-            this.config.blanks = blanks;
-
-            this.BOX_SIZE = this.config.N;
-            this.SIZE = this.config.N * this.config.N;
+            // 配置值已通过 update:config 事件同步到 this.config
+            const BOX_SIZE = this.config.N;
+            const SIZE = this.config.N * this.config.N;
 
             // 重置游戏状态
             this.game = { ...GameStateManager.createDefaultState(), isGenerating: true };
@@ -71,11 +65,11 @@ const app = createApp({
             this.page = 'game';
 
             try {
-                const puzzle = await SudokuGenerator.generate(this.BOX_SIZE, this.SIZE, blanks);
+                const puzzle = await SudokuGenerator.generate(BOX_SIZE, SIZE, this.config.blanks);
                 this._applyBoard(puzzle);
             } catch (e) {
                 console.error('生成失败:', e);
-                const puzzle = SudokuGenerator.generateSync(this.BOX_SIZE, this.SIZE, blanks);
+                const puzzle = SudokuGenerator.generateSync(BOX_SIZE, SIZE, this.config.blanks);
                 this._applyBoard(puzzle);
             }
         },
@@ -90,9 +84,8 @@ const app = createApp({
         // ===== 用户题目 =====
         startUserPuzzle(puzzleData) {
             this.currentPuzzleData = puzzleData;
-            this.SIZE = puzzleData.size || puzzleData.SIZE;
-            this.BOX_SIZE = puzzleData.box_size || puzzleData.BOX_SIZE;
-            this.config.N = this.BOX_SIZE;
+            const size = puzzleData.size || puzzleData.SIZE;
+            this.config.N = Math.round(Math.sqrt(size));
 
             let puzzle = puzzleData.puzzle_data || puzzleData.puzzle;
             if (typeof puzzle === 'string') {
@@ -129,7 +122,8 @@ const app = createApp({
         updateGame(newGame) { this.game = newGame; },
         updateHistoryMap(newMap) { this.historyMap = newMap; },
         updateStepPointer(newPtr) { this.stepPointer = newPtr; },
-        updateZoom(newZoom) { this.zoom = newZoom; }
+        updateZoom(newZoom) { this.zoom = newZoom; },
+        updateConfig(newConfig) { this.config = newConfig; }
     },
     mounted() {
         this.config.blanks = this.minBlanks;

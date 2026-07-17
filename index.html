@@ -31,6 +31,7 @@
             :max-blanks="maxBlanks"
             @start="startFromConfig"
             @back="goToMainMenu"
+            @update:config="updateConfig"
         ></config-component>
         
         <!-- 出题 -->
@@ -55,8 +56,6 @@
             :history-map="historyMap"
             :step-pointer="stepPointer"
             :zoom="zoom"
-            :box-size="BOX_SIZE"
-            :size="SIZE"
             @back="goToMainMenu"
             @reset="resetGame"
             @update:game="updateGame"

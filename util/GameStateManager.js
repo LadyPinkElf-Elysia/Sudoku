@@ -93,9 +93,12 @@ export class GameStateManager {
         // 执行操作
         updateFn(cell);
 
+        const BOX_SIZE = config.N;
+        const SIZE = config.N * config.N;
+
         // 更新冲突
         const messages = SudokuGridHelper.updateConflictsLocal(
-            game.board, row, col, config.BOX_SIZE || config.N, config.SIZE || config.N * config.N
+            game.board, row, col, BOX_SIZE, SIZE
         );
 
         let newGame = { ...game, conflictMessages: messages, hintMessage: '' };
@@ -111,8 +114,7 @@ export class GameStateManager {
         }
 
         // 检查完成
-        const size = config.SIZE || config.N * config.N;
-        if (SudokuGridHelper.checkComplete(game.board, size)) {
+        if (SudokuGridHelper.checkComplete(game.board, SIZE)) {
             newGame.complete = true;
             newGame.selectedRow = null;
             newGame.selectedCol = null;

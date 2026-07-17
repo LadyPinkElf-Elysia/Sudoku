@@ -94,13 +94,6 @@ export class SudokuGameHelper {
         })));
     }
 
-    // 同步生成（Worker 失败时的回退）
-    static generateSync(BOX_SIZE, SIZE, blanks) {
-        const solution = GridUtils.generateSolution(BOX_SIZE, SIZE);
-        const puzzle = GridUtils.createPuzzle(solution, blanks);
-        return puzzle;
-    }
-
     // 历史导航
     static navigateHistory(board, historyMap, targetStep, SIZE, BOX_SIZE) {
         if (!historyMap[targetStep]) return null;

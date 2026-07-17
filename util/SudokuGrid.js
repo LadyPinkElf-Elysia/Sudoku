@@ -144,12 +144,26 @@ export const GridUtils = {
 
     // 生成数独
     generateSolution(BOX_SIZE, SIZE) {
-        for (let attempt = 0; attempt < 10; attempt++) {
+        const maxAttempts = SIZE <= 9 ? 10 : 50;
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
             const grid = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
             GridUtils.fillDiagonalBoxes(grid, BOX_SIZE, SIZE);
             if (GridUtils.solve(grid, BOX_SIZE, SIZE)) {
                 if (GridUtils.validate(grid, BOX_SIZE, SIZE)) return grid;
             }
+        }
+        // 最后尝试：使用确定性填充（不随机）
+        const grid = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
+        for (let b = 0; b < SIZE; b += (BOX_SIZE + 1)) {
+            const sr = Math.floor(b / BOX_SIZE) * BOX_SIZE;
+            const sc = (b % BOX_SIZE) * BOX_SIZE;
+            let num = 1;
+            for (let r = sr; r < sr + BOX_SIZE; r++)
+                for (let c = sc; c < sc + BOX_SIZE; c++)
+                    grid[r][c] = num++;
+        }
+        if (GridUtils.solve(grid, BOX_SIZE, SIZE)) {
+            if (GridUtils.validate(grid, BOX_SIZE, SIZE)) return grid;
         }
         return Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
     },

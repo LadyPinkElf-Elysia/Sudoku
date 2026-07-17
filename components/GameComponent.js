@@ -86,12 +86,12 @@ export const GameComponent = {
         config: { type: Object, required: true },
         historyMap: { type: Object, default: () => ({}) },
         stepPointer: { type: Number, default: -1 },
-        zoom: { type: Number, default: 1.0 },
-        boxSize: { type: Number, default: 3 },
-        size: { type: Number, default: 9 }
+        zoom: { type: Number, default: 1.0 }
     },
     emits: ['back', 'reset', 'update:game', 'update:historyMap', 'update:stepPointer', 'update:zoom'],
     computed: {
+        boxSize() { return this.config.N || 3; },
+        size() { return (this.config.N || 3) * (this.config.N || 3); },
         getSizeLabel() { const size = this.size; return size > 0 ? size + '×' + size : '配置中'; },
         stepKeys() { return Object.keys(this.historyMap).map(Number).sort((a, b) => a - b); }
     },
@@ -129,11 +129,7 @@ export const GameComponent = {
             this.$nextTick(() => this.renderCanvas());
         },
         _operateCell(updateFn) {
-            const result = GameStateManager.operateCell(this.game, {
-                ...this.config,
-                BOX_SIZE: this.boxSize,
-                SIZE: this.size
-            }, this.game.selectedRow, this.game.selectedCol, updateFn, {
+            const result = GameStateManager.operateCell(this.game, this.config, this.game.selectedRow, this.game.selectedCol, updateFn, {
                 historyMap: this.historyMap,
                 stepPointer: this.stepPointer
             });
@@ -175,10 +171,11 @@ export const GameComponent = {
         }
     },
     watch: {
-        'game.board': {
+        game: {
             handler() { this.$nextTick(() => this.renderCanvas()); },
             deep: true
-        }
+        },
+        'config.N'() { this.$nextTick(() => this.renderCanvas()); }
     },
     mounted() {
         this.$nextTick(() => {
