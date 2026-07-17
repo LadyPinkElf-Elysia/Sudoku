@@ -3,7 +3,7 @@ import { GameStateManager } from '../util/GameStateManager.js';
 
 export const ConfigComponent = {
     template: `
-        <div class="config-panel">
+        <div class="panel">
             <div class="config-header">
                 <button class="btn btn-secondary btn-sm" @click="$emit('back')">← 返回</button>
                 <h2>⚙️ 游戏设置</h2>

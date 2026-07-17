@@ -4,7 +4,7 @@ import { FormatUtils } from '../util/FormatUtils.js';
 
 export const SearchPuzzlesComponent = {
     template: `
-        <div class="search-puzzles-panel">
+        <div class="panel">
             <div class="config-header">
                 <button class="btn btn-secondary btn-sm" @click="$emit('back')">← 返回</button>
                 <h2>🔍 搜索题目</h2>
@@ -17,21 +17,21 @@ export const SearchPuzzlesComponent = {
             
             <div v-if="message" class="auth-message" :class="{ success: message.includes('找到') }">{{ message }}</div>
             
-            <div v-if="searchResults.length > 0" class="search-results">
+            <div v-if="searchResults.length > 0" class="card-list">
                     <div v-for="puzzle in searchResults" :key="puzzle.id" class="puzzle-card" @click="$emit('startPuzzle', puzzle)">
-                        <div class="puzzle-card-header">
+                        <div class="card-header">
                             <span class="puzzle-id">#{{ puzzle.id }}</span>
                             <span class="puzzle-size">{{ puzzle.size || puzzle.SIZE }}×{{ puzzle.size || puzzle.SIZE }}</span>
                         </div>
-                        <div class="puzzle-card-title">{{ puzzle.title }}</div>
-                        <div class="puzzle-card-author" @click.stop="viewUserPuzzles(puzzle)">👤 {{ puzzle.username }} (ID: {{ puzzle.user_id || puzzle.userId }})</div>
-                        <div class="puzzle-card-stats" v-if="puzzle.stats">
+                        <div class="card-title">{{ puzzle.title }}</div>
+                        <div class="card-author" @click.stop="viewUserPuzzles(puzzle)">👤 {{ puzzle.username }} (ID: {{ puzzle.user_id || puzzle.userId }})</div>
+                        <div class="card-stats" v-if="puzzle.stats">
                             <span>👥 {{ puzzle.stats.totalChallenges }}</span>
                             <span>✅ {{ puzzle.stats.completedChallenges }}</span>
                             <span>📊 {{ puzzle.stats.passRate }}</span>
                             <span v-if="puzzle.stats.avgTime > 0">⏱️ {{ puzzle.stats.avgTimeFormatted }}</span>
                         </div>
-                        <div class="puzzle-card-date">{{ new Date(puzzle.created_at || puzzle.createdAt).toLocaleDateString() }}</div>
+                        <div class="card-date">{{ new Date(puzzle.created_at || puzzle.createdAt).toLocaleDateString() }}</div>
                     </div>
             </div>
             

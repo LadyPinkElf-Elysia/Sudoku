@@ -1,11 +1,11 @@
 // GameComponent.js - 游戏组件
 import { SudokuGameHelper } from '../SudokuGameHelper.js';
-import { handleSudokuKeyDown } from '../util/SudokuRenderer.js';
-import { CanvasBoard } from '../util/CanvasBoard.js';
 import { GameStateManager } from '../util/GameStateManager.js';
 import { FormatUtils } from '../util/FormatUtils.js';
+import { BoardMixin } from '../util/BoardMixin.js';
 
 export const GameComponent = {
+    mixins: [BoardMixin],
     template: `
         <div class="game-area">
             <div class="status-bar">
@@ -80,7 +80,6 @@ export const GameComponent = {
                 </div>
             </div>
 
-            <!-- 加载中遮罩 -->
             <div class="loading-overlay" v-if="game.isGenerating">
                 <div class="loading-content">
                     <div class="loading-spinner"></div>
@@ -93,15 +92,10 @@ export const GameComponent = {
         game: { type: Object, required: true },
         config: { type: Object, required: true },
         historyMap: { type: Object, default: () => ({}) },
-        stepPointer: { type: Number, default: -1 },
-        zoom: { type: Number, default: 1.0 }
+        stepPointer: { type: Number, default: -1 }
     },
-    emits: ['back', 'reset', 'update:game', 'update:historyMap', 'update:stepPointer', 'update:zoom'],
+    emits: ['back', 'reset', 'update:game', 'update:historyMap', 'update:stepPointer'],
     computed: {
-        boxSize() { return this.config.N || 3; },
-        size() { return (this.config.N || 3) * (this.config.N || 3); },
-        getSizeLabel() { const size = this.size; return size > 0 ? size + '×' + size : '配置中'; },
-        stepKeys() { return Object.keys(this.historyMap).map(Number).sort((a, b) => a - b); },
         formattedTime() {
             if (!this.game.startTime) return '00:00';
             const elapsed = Math.floor((Date.now() - this.game.startTime) / 1000);
@@ -109,39 +103,39 @@ export const GameComponent = {
         }
     },
     methods: {
-        renderCanvas() {
-            CanvasBoard.render('sudokuCanvas', this.game.board, this.size, this.boxSize, this.game.selectedRow, this.game.selectedCol, this.zoom);
+        // ===== BoardMixin 实现 =====
+        _getBoard() { return this.game.board; },
+        _getGameState() { return this.game; },
+        _getSelectedRow() { return this.game.selectedRow; },
+        _getSelectedCol() { return this.game.selectedCol; },
+        _onCellClick(row, col) {
+            this.$emit('update:game', { ...this.game, selectedRow: row, selectedCol: col, hintMessage: '' });
+            this.$nextTick(() => this._renderBoard());
         },
-        onCanvasClick(e) {
-            if (this.game.isGenerating) return;
-            const pos = CanvasBoard.getCellFromClick(e, 'sudokuCanvas', this.size);
-            if (pos) this.selectCell(pos.row, pos.col);
+        _onInputNumber(num) { this.inputNumber(num); },
+        _onClearSelected() { this.clearSelected(); },
+        _onHistoryNavigate(messages) {
+            this.$emit('update:game', { ...this.game, conflictMessages: messages, selectedRow: null, selectedCol: null, hintMessage: '' });
         },
-        saveState() {
-            const result = SudokuGameHelper.saveState(this.historyMap, this.stepPointer, this.game.board);
-            this.$emit('update:historyMap', result.newHistoryMap);
-            this.$emit('update:stepPointer', result.newStepPointer);
-            this.$emit('update:game', { ...this.game, hintMessage: '' });
+        _onSaveState(newHistoryMap, newStepPointer) {
+            this.$emit('update:historyMap', newHistoryMap);
+            this.$emit('update:stepPointer', newStepPointer);
         },
-        movePointer(targetStep) {
+        _onMovePointer(targetStep) {
             this.$emit('update:stepPointer', targetStep);
-            const result = SudokuGameHelper.navigateHistory(this.game.board, this.historyMap, targetStep, this.size, this.boxSize);
-            if (!result) return;
-            this.$emit('update:game', { ...this.game, conflictMessages: result.messages, selectedRow: null, selectedCol: null, hintMessage: '' });
-            this.$nextTick(() => this.renderCanvas());
+            const result = SudokuGameHelper.navigateHistory(this._getBoard(), this.historyMap, targetStep, this.size, this.boxSize);
+            if (result) {
+                this._onHistoryNavigate(result.messages);
+                this.$nextTick(() => this._renderBoard());
+            }
         },
-        undo() { this.movePointer(this.stepPointer - 1); },
-        redo() { this.movePointer(this.stepPointer + 1); },
-        giveHint() {
-            if (this.game.isGenerating) return;
-            if (this.game.hintsRemaining === 0) return;
-            const msg = SudokuGameHelper.getHintMessage(this.game.board, this.game.selectedRow, this.game.selectedCol, this.boxSize, this.size);
-            const newHints = this.game.hintsRemaining > 0 ? this.game.hintsRemaining - 1 : this.game.hintsRemaining;
-            this.$emit('update:game', { ...this.game, hintMessage: msg, hintsRemaining: newHints });
+
+        // ===== 游戏操作 =====
+        inputNumber(num) {
+            this._operateCell(cell => { cell.value = (cell.value === num) ? 0 : num; });
         },
-        selectCell(r, c) {
-            this.$emit('update:game', { ...this.game, selectedRow: r, selectedCol: c, hintMessage: '' });
-            this.$nextTick(() => this.renderCanvas());
+        clearSelected() {
+            this._operateCell(cell => { cell.value = 0; });
         },
         _operateCell(updateFn) {
             const result = GameStateManager.operateCell(this.game, this.config, this.game.selectedRow, this.game.selectedCol, updateFn, {
@@ -149,58 +143,38 @@ export const GameComponent = {
                 stepPointer: this.stepPointer
             });
             if (!result) return;
-
             this.$emit('update:historyMap', result.newHistoryMap);
             this.$emit('update:stepPointer', result.newStepPointer);
             this.$emit('update:game', result.newGame);
-            this.$nextTick(() => this.renderCanvas());
+            this.$nextTick(() => this._renderBoard());
         },
-        inputNumber(num) { this._operateCell(cell => { cell.value = (cell.value === num) ? 0 : num; }); },
-        clearSelected() { this._operateCell(cell => { cell.value = 0; }); },
-        zoomIn() {
-            const newZoom = Math.min(3.0, this.zoom + 0.1);
-            this.$emit('update:zoom', newZoom);
-            this.$nextTick(() => this.renderCanvas());
-        },
-        zoomOut() {
-            const newZoom = Math.max(0.5, this.zoom - 0.1);
-            this.$emit('update:zoom', newZoom);
-            this.$nextTick(() => this.renderCanvas());
-        },
-        handleKeyDown(e) {
-            handleSudokuKeyDown(e, {
-                started: this.game.started,
-                isGenerating: this.game.isGenerating,
-                complete: this.game.complete,
-                over: this.game.over,
-                SIZE: this.size,
-                selectedRow: this.game.selectedRow,
-                selectedCol: this.game.selectedCol
-            }, {
-                inputNumber: (num) => this.inputNumber(num),
-                clearSelected: () => this.clearSelected(),
-                selectCell: (r, c) => this.selectCell(r, c),
-                undo: () => this.undo(),
-                redo: () => this.redo()
-            });
+
+        // ===== 历史 =====
+        undo() { this._onUndo(); },
+        redo() { this._onRedo(); },
+        movePointer(targetStep) { this._movePointer(targetStep); },
+
+        // ===== 提示 =====
+        giveHint() {
+            if (this.game.isGenerating || this.game.hintsRemaining === 0) return;
+            const msg = SudokuGameHelper.getHintMessage(this.game.board, this.game.selectedRow, this.game.selectedCol, this.boxSize, this.size);
+            const newHints = this.game.hintsRemaining > 0 ? this.game.hintsRemaining - 1 : this.game.hintsRemaining;
+            this.$emit('update:game', { ...this.game, hintMessage: msg, hintsRemaining: newHints });
         }
     },
     watch: {
         game: {
-            handler() { this.$nextTick(() => this.renderCanvas()); },
+            handler() { this.$nextTick(() => this._renderBoard()); },
             deep: true
         },
-        'config.N'() { this.$nextTick(() => this.renderCanvas()); }
+        'config.N'() { this.$nextTick(() => this._renderBoard()); }
     },
     mounted() {
-        this.$nextTick(() => {
-            CanvasBoard.bindClick((e) => this.onCanvasClick(e), 'sudokuCanvas');
-            this.renderCanvas();
-        });
-        document.addEventListener('keydown', this.handleKeyDown);
+        this._bindCanvas();
+        this._bindKeyboard();
     },
     beforeUnmount() {
-        document.removeEventListener('keydown', this.handleKeyDown);
-        CanvasBoard.unbindClick(this.onCanvasClick, 'sudokuCanvas');
+        this._unbindKeyboard();
+        this._unbindCanvas();
     }
 };

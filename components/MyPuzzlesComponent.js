@@ -4,7 +4,7 @@ import { FormatUtils } from '../util/FormatUtils.js';
 
 export const MyPuzzlesComponent = {
     template: `
-        <div class="my-puzzles-panel">
+        <div class="panel">
             <div class="config-header">
                 <button class="btn btn-secondary btn-sm" @click="$emit('back')">← 返回</button>
                 <h2>{{ isReadonly ? '👤 用户题目' : '📋 我的题目' }}</h2>
@@ -20,24 +20,24 @@ export const MyPuzzlesComponent = {
                 <p>加载中...</p>
             </div>
 
-            <div v-if="puzzles.length > 0" class="my-puzzles-list">
+            <div v-if="puzzles.length > 0" class="card-list">
                 <div v-for="puzzle in puzzles" :key="puzzle.id" class="my-puzzle-card">
-                    <div class="my-puzzle-header">
+                    <div class="card-header">
                         <span class="puzzle-id">#{{ puzzle.id }}</span>
                         <span class="puzzle-size">{{ puzzle.size || puzzle.SIZE }}×{{ puzzle.size || puzzle.SIZE }}</span>
                     </div>
-                    <div class="my-puzzle-title">{{ puzzle.title || '无标题' }}</div>
-                    <div class="my-puzzle-date">{{ new Date(puzzle.created_at || puzzle.createdAt).toLocaleDateString() }}</div>
+                    <div class="card-title">{{ puzzle.title || '无标题' }}</div>
+                    <div class="card-date">{{ new Date(puzzle.created_at || puzzle.createdAt).toLocaleDateString() }}</div>
                     
                     <!-- 统计数据 -->
-                    <div class="my-puzzle-stats" v-if="puzzle.stats">
+                    <div class="card-stats" v-if="puzzle.stats">
                         <span>👥 {{ puzzle.stats.totalChallenges }}</span>
                         <span>✅ {{ puzzle.stats.completedChallenges }}</span>
                         <span>📊 {{ puzzle.stats.passRate }}</span>
                         <span v-if="puzzle.stats.avgTime > 0">⏱️ {{ puzzle.stats.avgTimeFormatted }}</span>
                     </div>
 
-                    <div class="my-puzzle-actions" v-if="!isReadonly">
+                    <div class="card-actions" v-if="!isReadonly">
                         <button class="btn btn-secondary btn-sm" @click="editPuzzle(puzzle)">✏️ 修改</button>
                     </div>
                 </div>

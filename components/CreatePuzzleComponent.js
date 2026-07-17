@@ -1,14 +1,14 @@
 // CreatePuzzleComponent.js - 出题组件（先出题再解题）
 import { SudokuGameHelper } from '../SudokuGameHelper.js';
 import { PuzzleStorage } from '../api.js';
-import { handleSudokuKeyDown } from '../util/SudokuRenderer.js';
 import { SudokuGridHelper } from '../util/SudokuGrid.js';
-import { CanvasBoard } from '../util/CanvasBoard.js';
 import { FormatUtils } from '../util/FormatUtils.js';
+import { BoardMixin } from '../util/BoardMixin.js';
 
 export const CreatePuzzleComponent = {
+    mixins: [BoardMixin],
     template: `
-        <div class="create-puzzle-panel">
+        <div class="panel">
             <div class="config-header">
                 <button class="btn btn-secondary btn-sm" @click="$emit('back')">← 返回</button>
                 <h2>✏️ {{ mode === 'edit' ? '出题 - 点击格子输入数字' : '🧩 解题' }}</h2>
@@ -18,7 +18,7 @@ export const CreatePuzzleComponent = {
                 <label>宫格大小 N:</label>
                 <div class="input-group">
                     <input type="number" v-model.number="puzzleN" :min="2" :max="6" @change="initBoard">
-                    <span class="hint">{{ SIZE }} x {{ SIZE }} 的棋盘</span>
+                    <span class="hint">{{ size }} x {{ size }} 的棋盘</span>
                 </div>
             </div>
             
@@ -29,7 +29,6 @@ export const CreatePuzzleComponent = {
                 </div>
             </div>
 
-            <!-- 统计数据 -->
             <div v-if="stats" class="stats-bar">
                 <span class="stat-item">👥 挑战人数: {{ stats.totalChallenges }}</span>
                 <span class="stat-item">✅ 通过人数: {{ stats.completedChallenges }}</span>
@@ -50,8 +49,8 @@ export const CreatePuzzleComponent = {
             </div>
             
             <div class="num-pad-wrapper">
-                <div class="num-grid" :style="{ gridTemplateColumns: 'repeat(' + BOX_SIZE + ', minmax(0, 1fr))' }">
-                    <button v-for="n in SIZE" :key="n" class="num-btn" @click="inputNumber(n)">{{ n }}</button>
+                <div class="num-grid" :style="{ gridTemplateColumns: 'repeat(' + boxSize + ', minmax(0, 1fr))' }">
+                    <button v-for="n in size" :key="n" class="num-btn" @click="inputNumber(n)">{{ n }}</button>
                 </div>
                 <button class="num-btn clear-btn" @click="clearSelected"></button>
                 <div class="action-row">
@@ -100,54 +99,71 @@ export const CreatePuzzleComponent = {
             historyMap: {},
             stepPointer: -1,
             showVictory: false,
-            zoom: 1.0,
             stats: null,
             submittedPuzzleId: null
         };
     },
     computed: {
-        SIZE() { return this.puzzleN * this.puzzleN; },
-        BOX_SIZE() { return this.puzzleN; },
         hasPuzzle() {
             if (!this.board.length) return false;
             return this.board.some(row => row.some(cell => cell > 0));
         },
         isComplete() {
             if (!this.gameBoard.length) return false;
-            return SudokuGridHelper.checkComplete(this.gameBoard, this.SIZE);
+            return SudokuGridHelper.checkComplete(this.gameBoard, this.size);
         },
         passRate() {
             return FormatUtils.calcPassRate(this.stats);
         }
     },
     methods: {
+        // ===== BoardMixin 实现 =====
+        _getBoard() {
+            if (this.mode === 'edit') {
+                return this.board.map(row => row.map(v => ({ value: v, editable: true, conflict: false, given: false })));
+            }
+            return this.gameBoard;
+        },
+        _getSelectedRow() { return this.selectedRow; },
+        _getSelectedCol() { return this.selectedCol; },
+        _onCellClick(row, col) {
+            if (this.mode === 'solve' && this.gameBoard[row][col].given) return;
+            this.selectedRow = row;
+            this.selectedCol = col;
+            this._renderBoard();
+        },
+        _onInputNumber(num) { this.inputNumber(num); },
+        _onClearSelected() { this.clearSelected(); },
+        _onHistoryNavigate() { this._renderBoard(); },
+        _onSaveState(newHistoryMap, newStepPointer) {
+            this.historyMap = newHistoryMap;
+            this.stepPointer = newStepPointer;
+        },
+        _onMovePointer(targetStep) {
+            this.stepPointer = targetStep;
+            const result = SudokuGameHelper.navigateHistory(this._getBoard(), this.historyMap, targetStep, this.size, this.boxSize);
+            if (result) {
+                this._onHistoryNavigate(result.messages);
+                this.$nextTick(() => this._renderBoard());
+            }
+        },
+
+        // ===== 初始化 =====
         initBoard() {
-            const size = this.SIZE;
+            const size = this.size;
             this.board = Array.from({ length: size }, () => Array(size).fill(0));
             this.selectedRow = null;
             this.selectedCol = null;
             this.mode = 'edit';
             this.showVictory = false;
-            this.zoom = 1.0;
             this.stats = null;
             this.submittedPuzzleId = null;
-            this.$nextTick(() => this.renderCanvas());
+            this.historyMap = {};
+            this.stepPointer = -1;
+            this._renderBoard();
         },
-        renderCanvas() {
-            const board = this.mode === 'edit'
-                ? this.board.map(row => row.map(v => ({ value: v, editable: true, conflict: false, given: false })))
-                : this.gameBoard;
-            CanvasBoard.render('createCanvas', board, this.SIZE, this.BOX_SIZE, this.selectedRow, this.selectedCol, this.zoom);
-        },
-        onCanvasClick(e) {
-            const pos = CanvasBoard.getCellFromClick(e, 'createCanvas', this.SIZE);
-            if (!pos) return;
-            const { row, col } = pos;
-            if (this.mode === 'solve' && this.gameBoard[row][col].given) return;
-            this.selectedRow = row;
-            this.selectedCol = col;
-            this.renderCanvas();
-        },
+
+        // ===== 输入操作 =====
         inputNumber(num) {
             if (this.selectedRow === null || this.selectedCol === null) return;
             const r = this.selectedRow, c = this.selectedCol;
@@ -156,15 +172,15 @@ export const CreatePuzzleComponent = {
                 this.board[r][c] = (this.board[r][c] === num) ? 0 : num;
             } else {
                 if (this.gameBoard[r][c].given) return;
-                this.saveState();
+                this._saveState();
                 this.gameBoard[r][c].value = (this.gameBoard[r][c].value === num) ? 0 : num;
                 this.gameBoard[r][c].conflict = false;
-                const messages = SudokuGridHelper.updateConflictsLocal(this.gameBoard, r, c, this.BOX_SIZE, this.SIZE);
-                if (SudokuGridHelper.checkComplete(this.gameBoard, this.SIZE)) {
+                SudokuGridHelper.updateConflictsLocal(this.gameBoard, r, c, this.boxSize, this.size);
+                if (SudokuGridHelper.checkComplete(this.gameBoard, this.size)) {
                     this.showVictory = true;
                 }
             }
-            this.renderCanvas();
+            this._renderBoard();
         },
         clearSelected() {
             if (this.selectedRow === null || this.selectedCol === null) return;
@@ -173,20 +189,22 @@ export const CreatePuzzleComponent = {
                 this.board[r][c] = 0;
             } else {
                 if (this.gameBoard[r][c].given) return;
-                this.saveState();
+                this._saveState();
                 this.gameBoard[r][c].value = 0;
                 this.gameBoard[r][c].conflict = false;
             }
-            this.renderCanvas();
+            this._renderBoard();
         },
+
+        // ===== 编辑操作 =====
         clearBoard() {
-            const size = this.SIZE;
+            const size = this.size;
             this.board = Array.from({ length: size }, () => Array(size).fill(0));
             this.selectedRow = null;
             this.selectedCol = null;
             this.mode = 'edit';
             this.showVictory = false;
-            this.renderCanvas();
+            this._renderBoard();
         },
         fillExample() {
             this.puzzleN = 3;
@@ -203,7 +221,7 @@ export const CreatePuzzleComponent = {
                 [0,0,0,0,8,0,0,7,9]
             ];
             this.board = example.map(row => [...row]);
-            this.$nextTick(() => this.renderCanvas());
+            this._renderBoard();
         },
         startSolving() {
             this.gameBoard = this.board.map(row =>
@@ -220,60 +238,40 @@ export const CreatePuzzleComponent = {
             this.selectedCol = null;
             this.showVictory = false;
             this.mode = 'solve';
-            this.$nextTick(() => this.renderCanvas());
+            this._renderBoard();
         },
-        saveState() {
-            const result = SudokuGameHelper.saveState(this.historyMap, this.stepPointer, this.gameBoard);
-            this.historyMap = result.newHistoryMap;
-            this.stepPointer = result.newStepPointer;
-        },
-        undo() {
-            if (this.stepPointer <= 0) return;
-            this.stepPointer--;
-            const result = SudokuGameHelper.navigateHistory(this.gameBoard, this.historyMap, this.stepPointer, this.SIZE, this.BOX_SIZE);
-            if (result) {
-                this.selectedRow = null;
-                this.selectedCol = null;
-                this.renderCanvas();
-            }
-        },
-        redo() {
-            if (!this.historyMap[this.stepPointer + 1]) return;
-            this.stepPointer++;
-            const result = SudokuGameHelper.navigateHistory(this.gameBoard, this.historyMap, this.stepPointer, this.SIZE, this.BOX_SIZE);
-            if (result) {
-                this.selectedRow = null;
-                this.selectedCol = null;
-                this.renderCanvas();
-            }
-        },
+
+        // ===== 历史 =====
+        undo() { this._onUndo(); },
+        redo() { this._onRedo(); },
+
+        // ===== 统计 =====
         async loadStats(puzzleId) {
             this.stats = await PuzzleStorage.getStats(puzzleId);
         },
+
+        // ===== 提交 =====
         async submitPuzzle() {
             this.message = '';
             const puzzle = this.board.map(row => [...row]);
             if (!this.hasPuzzle) { this.message = '请在棋盘上输入数字'; return; }
-            const SIZE = puzzle.length;
-            const BOX_SIZE = this.puzzleN;
             const solution = this.gameBoard.map(row => row.map(cell => cell.value));
-            if (!SudokuGridHelper.checkComplete(solution, SIZE)) { this.message = '请先完成解题再提交'; return; }
+            // 检查是否所有格子都已填满且无冲突
+            const allFilled = solution.every(row => row.every(v => v > 0));
+            if (!allFilled) { this.message = '请先完成解题再提交'; return; }
             this.message = '正在保存...';
 
             let saveResult;
             if (this.submittedPuzzleId) {
-                // 编辑模式：更新已有题目
                 saveResult = await PuzzleStorage.update(
-                    this.submittedPuzzleId,
-                    this.currentUser.id,
-                    puzzle, solution, SIZE, BOX_SIZE,
+                    this.submittedPuzzleId, this.currentUser.id,
+                    puzzle, solution, this.size, this.boxSize,
                     this.puzzleTitle || undefined
                 );
             } else {
-                // 新增模式
                 saveResult = await PuzzleStorage.add(
                     this.currentUser.id, this.currentUser.username,
-                    puzzle, solution, SIZE, BOX_SIZE,
+                    puzzle, solution, this.size, this.boxSize,
                     this.puzzleTitle || undefined
                 );
             }
@@ -282,43 +280,18 @@ export const CreatePuzzleComponent = {
                 this.message = this.submittedPuzzleId
                     ? '✅ 题目修改成功！所有挑战数据已重置'
                     : '✅ 题目保存成功！题目ID: ' + saveResult.puzzle.id;
-                // 延迟一下让用户看到成功消息，然后返回主页面
                 await new Promise(r => setTimeout(r, 1500));
                 this.$emit('saved');
-                this.$emit('back');
             } else {
                 this.message = saveResult.message || '保存失败，请重试';
             }
-        },
-        zoomIn() {
-            this.zoom = Math.min(3.0, this.zoom + 0.1);
-            this.$nextTick(() => this.renderCanvas());
-        },
-        zoomOut() {
-            this.zoom = Math.max(0.5, this.zoom - 0.1);
-            this.$nextTick(() => this.renderCanvas());
-        },
-        handleKeyDown(e) {
-            handleSudokuKeyDown(e, {
-                started: true, isGenerating: false, complete: false, over: false,
-                SIZE: this.SIZE, selectedRow: this.selectedRow, selectedCol: this.selectedCol
-            }, {
-                inputNumber: (num) => this.inputNumber(num),
-                clearSelected: () => this.clearSelected(),
-                selectCell: (r, c) => {
-                    if (this.mode === 'solve' && this.gameBoard[r][c].given) return;
-                    this.selectedRow = r;
-                    this.selectedCol = c;
-                    this.renderCanvas();
-                },
-                undo: () => this.undo(),
-                redo: () => this.redo()
-            });
         }
     },
     mounted() {
+        // 必须在 _bindCanvas 之前设置 canvasId
+        this._canvasId = 'createCanvas';
+        
         if (this.editPuzzleData) {
-            // 编辑模式：加载已有题目
             const puzzleData = this.editPuzzleData;
             const puzzleStr = puzzleData.puzzle_data || puzzleData.puzzle;
             let puzzle;
@@ -328,26 +301,21 @@ export const CreatePuzzleComponent = {
                 puzzle = puzzleStr;
             }
             if (Array.isArray(puzzle) && puzzle.length > 0) {
-                const size = puzzle.length;
-                const n = Math.round(Math.sqrt(size));
+                const n = Math.round(Math.sqrt(puzzle.length));
                 this.puzzleN = n;
                 this.puzzleTitle = puzzleData.title || '';
                 this.board = puzzle.map(row => [...row]);
                 this.submittedPuzzleId = puzzleData.id;
-                // 加载统计
                 this.loadStats(puzzleData.id);
             }
         } else {
             this.initBoard();
         }
-        this.$nextTick(() => {
-            CanvasBoard.bindClick((e) => this.onCanvasClick(e), 'createCanvas');
-            this.renderCanvas();
-        });
-        document.addEventListener('keydown', this.handleKeyDown);
+        this._bindCanvas();
+        this._bindKeyboard();
     },
     beforeUnmount() {
-        document.removeEventListener('keydown', this.handleKeyDown);
-        CanvasBoard.unbindClick(this.onCanvasClick, 'createCanvas');
+        this._unbindKeyboard();
+        this._unbindCanvas();
     }
 };
