@@ -3,6 +3,7 @@ import { SudokuGameHelper } from '../SudokuGameHelper.js';
 import { handleSudokuKeyDown } from '../util/SudokuRenderer.js';
 import { CanvasBoard } from '../util/CanvasBoard.js';
 import { GameStateManager } from '../util/GameStateManager.js';
+import { FormatUtils } from '../util/FormatUtils.js';
 
 export const GameComponent = {
     template: `
@@ -66,7 +67,7 @@ export const GameComponent = {
                 <div class="victory-dialog">
                     <h3>🎉 恭喜完成！</h3>
                     <p>你成功解开了 {{ size }}x{{ size }} 的数独！</p>
-                    <p v-if="game.elapsedTime > 0">⏱️ 用时: {{ formatTime(game.elapsedTime) }}</p>
+                    <p v-if="game.elapsedTime > 0">⏱️ 用时: {{ FormatUtils.formatTime(game.elapsedTime) }}</p>
                     <button class="btn btn-primary" @click="$emit('back')">返回菜单</button>
                 </div>
             </div>
@@ -104,15 +105,10 @@ export const GameComponent = {
         formattedTime() {
             if (!this.game.startTime) return '00:00';
             const elapsed = Math.floor((Date.now() - this.game.startTime) / 1000);
-            return this.formatTime(elapsed);
+            return FormatUtils.formatTime(elapsed);
         }
     },
     methods: {
-        formatTime(seconds) {
-            const m = Math.floor(seconds / 60);
-            const s = seconds % 60;
-            return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
-        },
         renderCanvas() {
             CanvasBoard.render('sudokuCanvas', this.game.board, this.size, this.boxSize, this.game.selectedRow, this.game.selectedCol, this.zoom);
         },

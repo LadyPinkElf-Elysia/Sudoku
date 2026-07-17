@@ -34,6 +34,11 @@ export const MainMenuComponent = {
                         <div class="menu-card-title">出题</div>
                         <div class="menu-card-desc">创建自己的数独题目</div>
                     </div>
+                    <div class="menu-card" @click="handleMyPuzzles">
+                        <div class="menu-card-icon">📋</div>
+                        <div class="menu-card-title">我的题目</div>
+                        <div class="menu-card-desc">查看和修改自己出的题目</div>
+                    </div>
                     <div class="menu-card" @click="$emit('searchPuzzles')">
                         <div class="menu-card-icon">🔍</div>
                         <div class="menu-card-title">搜索题目</div>
@@ -46,7 +51,7 @@ export const MainMenuComponent = {
     props: {
         currentUser: { type: Object, required: true }
     },
-    emits: ['startSystemGame', 'startRandomUserPuzzle', 'createPuzzle', 'searchPuzzles', 'logout'],
+    emits: ['startSystemGame', 'startRandomUserPuzzle', 'createPuzzle', 'myPuzzles', 'searchPuzzles', 'logout'],
     computed: {
         isGuest() { return this.currentUser && this.currentUser.isGuest; }
     },
@@ -57,6 +62,13 @@ export const MainMenuComponent = {
                 return;
             }
             this.$emit('createPuzzle');
+        },
+        handleMyPuzzles() {
+            if (this.isGuest) {
+                alert('⚠️ 游客模式无法查看我的题目，请登录或注册账号后使用此功能');
+                return;
+            }
+            this.$emit('myPuzzles');
         }
     }
 };

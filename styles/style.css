@@ -239,7 +239,8 @@ body {
 .puzzle-id { font-weight: 700; color: #6366f1; font-size: 0.9rem; }
 .puzzle-size { font-size: 0.8rem; color: #6b7280; background: #f3f4f6; padding: 2px 8px; border-radius: 10px; }
 .puzzle-card-title { font-weight: 600; color: #1f2937; font-size: 0.9rem; margin-bottom: 2px; }
-.puzzle-card-author { font-size: 0.8rem; color: #6b7280; }
+.puzzle-card-author { font-size: 0.8rem; color: #6366f1; cursor: pointer; text-decoration: underline; text-decoration-style: dotted; }
+.puzzle-card-author:hover { color: #4f46e5; }
 .puzzle-card-stats {
     display: flex;
     gap: 12px;
@@ -351,3 +352,20 @@ body {
     display: flex;
     justify-content: center;
 }
+
+/* ===== 我的题目 ===== */
+.my-puzzles-panel { padding: 8px 0; }
+.my-puzzles-list { display: flex; flex-direction: column; gap: 8px; max-height: 60vh; overflow-y: auto; }
+.my-puzzle-card { padding: 12px 14px; border-radius: 10px; border: 1px solid #e5e7eb; background: #fafafa; text-align: left; }
+.my-puzzle-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.my-puzzle-title { font-weight: 600; color: #1f2937; font-size: 0.9rem; margin-bottom: 2px; }
+.my-puzzle-date { font-size: 0.75rem; color: #9ca3af; margin-top: 2px; }
+.my-puzzle-stats {
+    display: flex;
+    gap: 12px;
+    margin-top: 4px;
+    font-size: 0.8rem;
+    color: #6b7280;
+    flex-wrap: wrap;
+}
+.my-puzzle-actions { margin-top: 8px; display: flex; gap: 8px; }

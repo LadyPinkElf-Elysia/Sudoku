@@ -1,5 +1,6 @@
 // SearchPuzzlesComponent.js - 搜索题目组件
 import { PuzzleStorage } from '../api.js';
+import { FormatUtils } from '../util/FormatUtils.js';
 
 export const SearchPuzzlesComponent = {
     template: `
@@ -23,7 +24,7 @@ export const SearchPuzzlesComponent = {
                             <span class="puzzle-size">{{ puzzle.size || puzzle.SIZE }}×{{ puzzle.size || puzzle.SIZE }}</span>
                         </div>
                         <div class="puzzle-card-title">{{ puzzle.title }}</div>
-                        <div class="puzzle-card-author">👤 {{ puzzle.username }} (ID: {{ puzzle.user_id || puzzle.userId }})</div>
+                        <div class="puzzle-card-author" @click.stop="viewUserPuzzles(puzzle)">👤 {{ puzzle.username }} (ID: {{ puzzle.user_id || puzzle.userId }})</div>
                         <div class="puzzle-card-stats" v-if="puzzle.stats">
                             <span>👥 {{ puzzle.stats.totalChallenges }}</span>
                             <span>✅ {{ puzzle.stats.completedChallenges }}</span>
@@ -39,7 +40,7 @@ export const SearchPuzzlesComponent = {
             </div>
         </div>
     `,
-    emits: ['back', 'startPuzzle'],
+    emits: ['back', 'startPuzzle', 'viewUserPuzzles'],
     data() {
         return {
             searchQuery: '',
@@ -58,24 +59,15 @@ export const SearchPuzzlesComponent = {
                 this.message = '找到 ' + this.searchResults.length + ' 道题目';
             }
         },
-        _formatTime(seconds) {
-            const m = Math.floor(seconds / 60);
-            const s = seconds % 60;
-            return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
-        },
         async _loadStatsForResults() {
             for (const puzzle of this.searchResults) {
                 const stats = await PuzzleStorage.getStats(puzzle.id);
-                puzzle.stats = {
-                    totalChallenges: stats.totalChallenges,
-                    completedChallenges: stats.completedChallenges,
-                    passRate: stats.totalChallenges > 0
-                        ? (stats.completedChallenges / stats.totalChallenges * 100).toFixed(1) + '%'
-                        : '暂无',
-                    avgTime: stats.avgTime || 0,
-                    avgTimeFormatted: stats.avgTime > 0 ? this._formatTime(stats.avgTime) : ''
-                };
+                puzzle.stats = FormatUtils.formatStats(stats);
             }
+        },
+        viewUserPuzzles(puzzle) {
+            const userId = puzzle.user_id || puzzle.userId;
+            this.$emit('viewUserPuzzles', userId);
         }
     },
     async mounted() {

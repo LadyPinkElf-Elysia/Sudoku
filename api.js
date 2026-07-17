@@ -134,4 +134,35 @@ export class PuzzleStorage {
             return { totalChallenges: 0, completedChallenges: 0 };
         }
     }
+
+    static async getByUser(userId) {
+        try {
+            const res = await fetch(`/api/puzzles/byuser?userId=${userId}`);
+            const data = await res.json();
+            return data.puzzles || [];
+        } catch (e) {
+            console.error('获取用户题目失败:', e);
+            return [];
+        }
+    }
+
+    static async update(puzzleId, userId, puzzle, solution, SIZE, BOX_SIZE, title) {
+        try {
+            const res = await fetch('/api/puzzles/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    puzzleId, userId,
+                    puzzle: JSON.stringify(puzzle),
+                    solution: JSON.stringify(solution),
+                    SIZE, BOX_SIZE,
+                    title: title || ''
+                })
+            });
+            return await res.json();
+        } catch (e) {
+            console.error('更新题目失败:', e);
+            return { success: false, message: '网络错误，请重试' };
+        }
+    }
 }

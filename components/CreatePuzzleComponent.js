@@ -4,6 +4,7 @@ import { PuzzleStorage } from '../api.js';
 import { handleSudokuKeyDown } from '../util/SudokuRenderer.js';
 import { SudokuGridHelper } from '../util/SudokuGrid.js';
 import { CanvasBoard } from '../util/CanvasBoard.js';
+import { FormatUtils } from '../util/FormatUtils.js';
 
 export const CreatePuzzleComponent = {
     template: `
@@ -33,7 +34,7 @@ export const CreatePuzzleComponent = {
                 <span class="stat-item">👥 挑战人数: {{ stats.totalChallenges }}</span>
                 <span class="stat-item">✅ 通过人数: {{ stats.completedChallenges }}</span>
                 <span class="stat-item">📊 通过率: {{ passRate }}</span>
-                <span class="stat-item" v-if="stats.avgTime > 0">⏱️ 平均用时: {{ formatTime(stats.avgTime) }}</span>
+                <span class="stat-item" v-if="stats.avgTime > 0">⏱️ 平均用时: {{ FormatUtils.formatTime(stats.avgTime) }}</span>
             </div>
 
             <div class="zoom-controls" style="margin-bottom:8px;">
@@ -82,9 +83,10 @@ export const CreatePuzzleComponent = {
         </div>
     `,
     props: {
-        currentUser: { type: Object, required: true }
+        currentUser: { type: Object, required: true },
+        editPuzzleData: { type: Object, default: null }
     },
-    emits: ['back'],
+    emits: ['back', 'saved'],
     data() {
         return {
             mode: 'edit',
@@ -115,9 +117,7 @@ export const CreatePuzzleComponent = {
             return SudokuGridHelper.checkComplete(this.gameBoard, this.SIZE);
         },
         passRate() {
-            if (!this.stats || this.stats.totalChallenges === 0) return '暂无数据';
-            const rate = (this.stats.completedChallenges / this.stats.totalChallenges * 100).toFixed(1);
-            return rate + '%';
+            return FormatUtils.calcPassRate(this.stats);
         }
     },
     methods: {
@@ -247,11 +247,6 @@ export const CreatePuzzleComponent = {
                 this.renderCanvas();
             }
         },
-        formatTime(seconds) {
-            const m = Math.floor(seconds / 60);
-            const s = seconds % 60;
-            return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
-        },
         async loadStats(puzzleId) {
             this.stats = await PuzzleStorage.getStats(puzzleId);
         },
@@ -264,13 +259,33 @@ export const CreatePuzzleComponent = {
             const solution = this.gameBoard.map(row => row.map(cell => cell.value));
             if (!SudokuGridHelper.checkComplete(solution, SIZE)) { this.message = '请先完成解题再提交'; return; }
             this.message = '正在保存...';
-            const saveResult = await PuzzleStorage.add(this.currentUser.id, this.currentUser.username, puzzle, solution, SIZE, BOX_SIZE, this.puzzleTitle || undefined);
+
+            let saveResult;
+            if (this.submittedPuzzleId) {
+                // 编辑模式：更新已有题目
+                saveResult = await PuzzleStorage.update(
+                    this.submittedPuzzleId,
+                    this.currentUser.id,
+                    puzzle, solution, SIZE, BOX_SIZE,
+                    this.puzzleTitle || undefined
+                );
+            } else {
+                // 新增模式
+                saveResult = await PuzzleStorage.add(
+                    this.currentUser.id, this.currentUser.username,
+                    puzzle, solution, SIZE, BOX_SIZE,
+                    this.puzzleTitle || undefined
+                );
+            }
+
             if (saveResult.success) {
-                this.submittedPuzzleId = saveResult.puzzle.id;
-                this.message = '✅ 题目保存成功！题目ID: ' + this.submittedPuzzleId;
-                this.loadStats(this.submittedPuzzleId);
-                this.clearBoard();
-                this.puzzleTitle = '';
+                this.message = this.submittedPuzzleId
+                    ? '✅ 题目修改成功！所有挑战数据已重置'
+                    : '✅ 题目保存成功！题目ID: ' + saveResult.puzzle.id;
+                // 延迟一下让用户看到成功消息，然后返回主页面
+                await new Promise(r => setTimeout(r, 1500));
+                this.$emit('saved');
+                this.$emit('back');
             } else {
                 this.message = saveResult.message || '保存失败，请重试';
             }
@@ -302,9 +317,32 @@ export const CreatePuzzleComponent = {
         }
     },
     mounted() {
-        this.initBoard();
+        if (this.editPuzzleData) {
+            // 编辑模式：加载已有题目
+            const puzzleData = this.editPuzzleData;
+            const puzzleStr = puzzleData.puzzle_data || puzzleData.puzzle;
+            let puzzle;
+            if (typeof puzzleStr === 'string') {
+                try { puzzle = JSON.parse(puzzleStr); } catch (e) { puzzle = []; }
+            } else {
+                puzzle = puzzleStr;
+            }
+            if (Array.isArray(puzzle) && puzzle.length > 0) {
+                const size = puzzle.length;
+                const n = Math.round(Math.sqrt(size));
+                this.puzzleN = n;
+                this.puzzleTitle = puzzleData.title || '';
+                this.board = puzzle.map(row => [...row]);
+                this.submittedPuzzleId = puzzleData.id;
+                // 加载统计
+                this.loadStats(puzzleData.id);
+            }
+        } else {
+            this.initBoard();
+        }
         this.$nextTick(() => {
             CanvasBoard.bindClick((e) => this.onCanvasClick(e), 'createCanvas');
+            this.renderCanvas();
         });
         document.addEventListener('keydown', this.handleKeyDown);
     },

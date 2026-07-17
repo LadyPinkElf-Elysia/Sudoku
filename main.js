@@ -7,6 +7,7 @@ import { MainMenuComponent } from './components/MainMenuComponent.js';
 import { ConfigComponent } from './components/ConfigComponent.js';
 import { CreatePuzzleComponent } from './components/CreatePuzzleComponent.js';
 import { SearchPuzzlesComponent } from './components/SearchPuzzlesComponent.js';
+import { MyPuzzlesComponent } from './components/MyPuzzlesComponent.js';
 import { GameComponent } from './components/GameComponent.js';
 
 const app = createApp({
@@ -19,7 +20,9 @@ const app = createApp({
             historyMap: {},
             stepPointer: -1,
             zoom: 1.0,
-            currentPuzzleData: null
+            currentPuzzleData: null,
+            editPuzzleData: null,
+            viewUserId: null
         };
     },
     computed: {
@@ -46,9 +49,12 @@ const app = createApp({
         onLogin(user) { this.currentUser = user; this.page = 'mainMenu'; },
         onLogout() { this.currentUser = null; this.page = 'login'; },
         goToConfig() { this.page = 'config'; },
-        goToCreatePuzzle() { this.page = 'createPuzzle'; },
+        goToCreatePuzzle() { this.page = 'createPuzzle'; this.editPuzzleData = null; },
         goToSearchPuzzles() { this.page = 'searchPuzzles'; },
-        goToMainMenu() { this.page = 'mainMenu'; },
+        goToMyPuzzles() { this.page = 'myPuzzles'; this.viewUserId = null; },
+        goToMainMenu() { this.page = 'mainMenu'; this.viewUserId = null; },
+        viewUserPuzzles(userId) { this.viewUserId = userId; this.page = 'myPuzzles'; },
+        editPuzzle(puzzle) { this.editPuzzleData = puzzle; this.page = 'createPuzzle'; },
         startSystemGame() { this.page = 'config'; },
 
         // ===== 游戏启动 =====
@@ -154,6 +160,7 @@ app.component('main-menu-component', MainMenuComponent);
 app.component('config-component', ConfigComponent);
 app.component('create-puzzle-component', CreatePuzzleComponent);
 app.component('search-puzzles-component', SearchPuzzlesComponent);
+app.component('my-puzzles-component', MyPuzzlesComponent);
 app.component('game-component', GameComponent);
 
 app.mount('#app');

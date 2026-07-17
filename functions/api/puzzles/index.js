@@ -52,6 +52,41 @@ export async function onRequestPost(context) {
             }), { headers });
         }
 
+        // 更新题目
+        if (path === '/update') {
+            const { puzzleId, userId, puzzle, solution, SIZE, BOX_SIZE, title } = await request.json();
+
+            if (!puzzleId || !userId || !puzzle || !solution) {
+                return new Response(JSON.stringify({
+                    success: false, message: '缺少必要参数'
+                }), { headers });
+            }
+
+            // 验证所有权
+            const existing = await db.prepare(
+                'SELECT * FROM puzzles WHERE id = ? AND user_id = ?'
+            ).bind(puzzleId, userId).first();
+
+            if (!existing) {
+                return new Response(JSON.stringify({
+                    success: false, message: '无权修改此题目'
+                }), { headers });
+            }
+
+            await db.prepare(
+                'UPDATE puzzles SET puzzle = ?, solution = ?, SIZE = ?, BOX_SIZE = ?, title = ?, created_at = ? WHERE id = ?'
+            ).bind(puzzle, solution, SIZE || 3, BOX_SIZE || 3, title || '', Date.now(), puzzleId).run();
+
+            // 重置挑战数据
+            await db.prepare(
+                'DELETE FROM challenges WHERE puzzle_id = ?'
+            ).bind(puzzleId).run();
+
+            return new Response(JSON.stringify({
+                success: true
+            }), { headers });
+        }
+
         return new Response(JSON.stringify({
             success: false, message: 'Not Found'
         }), { status: 404, headers });
@@ -121,6 +156,24 @@ export async function onRequestGet(context) {
             ).first();
             return new Response(JSON.stringify({
                 success: true, puzzle: puzzle || null
+            }), { headers });
+        }
+
+        // 按用户查询题目
+        if (path === '/byuser') {
+            const userId = url.searchParams.get('userId');
+            if (!userId) {
+                return new Response(JSON.stringify({
+                    success: false, message: '缺少用户ID'
+                }), { headers });
+            }
+
+            const puzzles = await db.prepare(
+                'SELECT * FROM puzzles WHERE userId = ? ORDER BY created_at DESC'
+            ).bind(userId).all();
+
+            return new Response(JSON.stringify({
+                success: true, puzzles: puzzles.results
             }), { headers });
         }
 

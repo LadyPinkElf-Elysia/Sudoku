@@ -19,6 +19,7 @@
             @start-system-game="startSystemGame"
             @start-random-user-puzzle="startRandomUserPuzzle"
             @create-puzzle="goToCreatePuzzle"
+            @my-puzzles="goToMyPuzzles"
             @search-puzzles="goToSearchPuzzles"
             @logout="onLogout"
         ></main-menu-component>
@@ -38,7 +39,9 @@
         <create-puzzle-component 
             v-if="page === 'createPuzzle'"
             :current-user="currentUser"
+            :edit-puzzle-data="editPuzzleData"
             @back="goToMainMenu"
+            @saved="goToMyPuzzles"
         ></create-puzzle-component>
         
         <!-- 搜索题目 -->
@@ -46,7 +49,17 @@
             v-if="page === 'searchPuzzles'"
             @back="goToMainMenu"
             @start-puzzle="startUserPuzzle"
+            @view-user-puzzles="viewUserPuzzles"
         ></search-puzzles-component>
+        
+        <!-- 我的题目 -->
+        <my-puzzles-component 
+            v-if="page === 'myPuzzles'"
+            :current-user="currentUser"
+            :view-user-id="viewUserId"
+            @back="goToMainMenu"
+            @edit-puzzle="editPuzzle"
+        ></my-puzzles-component>
         
         <!-- 游戏 -->
         <game-component 
