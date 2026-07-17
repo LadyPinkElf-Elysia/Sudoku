@@ -81,8 +81,9 @@ const app = createApp({
         },
         _parsePuzzleStr(puzzleData) {
             const str = puzzleData.puzzle_data || puzzleData.puzzle;
+            if (!str) return [];
             if (typeof str === 'string') { try { return JSON.parse(str); } catch (e) { return []; } }
-            return str;
+            return Array.isArray(str) ? str : [];
         },
         _resetCreateState() {
             this.createPuzzleMode = 'edit';
@@ -127,8 +128,8 @@ const app = createApp({
         },
         async goToSearchPuzzles() {
             this.searchQuery = '';
-            this.searchResults = await PuzzleStorage.getAll();
-            await this._loadPuzzleStats(this.searchResults);
+            const puzzles = await PuzzleStorage.getAll();
+            this.searchResults = await this._loadPuzzleStats(puzzles);
             this.goToPage(Pages.SEARCH_PUZZLES);
         },
         async goToMyPuzzles() {
@@ -219,7 +220,10 @@ const app = createApp({
                 if (saveResult.puzzle) this.submittedPuzzleId = saveResult.puzzle.id;
                 this.createSubmitted = true;
                 this.createMessage = 'success';
-            } else { this.createMessage = saveResult.message || '保存失败'; }
+            } else {
+                this.createMessage = saveResult.message || '保存失败';
+                this.createSubmitted = false;
+            }
         },
 
         // ===== 搜索题目 =====
@@ -227,19 +231,34 @@ const app = createApp({
             this.searchResults = await PuzzleStorage.search(this.searchQuery);
             await this._loadPuzzleStats(this.searchResults);
         },
+        _isValidPuzzle(puzzle) {
+            const str = puzzle.puzzle_data || puzzle.puzzle;
+            if (!str) return false;
+            let parsed;
+            if (typeof str === 'string') { try { parsed = JSON.parse(str); } catch (e) { return false; } }
+            else { parsed = str; }
+            return Array.isArray(parsed) && parsed.length > 0 && parsed.every(row => Array.isArray(row) && row.length === parsed.length);
+        },
         async _loadPuzzleStats(puzzles) {
+            const validPuzzles = [];
             for (const puzzle of puzzles) {
+                if (!this._isValidPuzzle(puzzle)) {
+                    await PuzzleStorage.delete(puzzle.id, puzzle.user_id || puzzle.userId);
+                    continue;
+                }
                 const stats = await PuzzleStorage.getStats(puzzle.id);
                 puzzle.stats = this._formatStats(stats);
+                validPuzzles.push(puzzle);
             }
+            return validPuzzles;
         },
 
         // ===== 我的题目 =====
         async _loadMyPuzzles() {
             this.myPuzzlesLoading = true;
             const targetUserId = (this.viewUserId !== null && this.viewUserId !== this.currentUser.id) ? this.viewUserId : this.currentUser.id;
-            this.myPuzzles = await PuzzleStorage.getByUser(targetUserId);
-            await this._loadPuzzleStats(this.myPuzzles);
+            const puzzles = await PuzzleStorage.getByUser(targetUserId);
+            this.myPuzzles = await this._loadPuzzleStats(puzzles);
             this.myPuzzlesLoading = false;
         },
         async onDeletePuzzle(puzzle) {
