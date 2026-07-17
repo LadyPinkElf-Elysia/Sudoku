@@ -24,6 +24,11 @@ export const SearchPuzzlesComponent = {
                         </div>
                         <div class="puzzle-card-title">{{ puzzle.title }}</div>
                         <div class="puzzle-card-author">👤 {{ puzzle.username }} (ID: {{ puzzle.user_id || puzzle.userId }})</div>
+                        <div class="puzzle-card-stats" v-if="puzzle.stats">
+                            <span>👥 {{ puzzle.stats.totalChallenges }}</span>
+                            <span>✅ {{ puzzle.stats.completedChallenges }}</span>
+                            <span>📊 {{ puzzle.stats.passRate }}</span>
+                        </div>
                         <div class="puzzle-card-date">{{ new Date(puzzle.created_at || puzzle.createdAt).toLocaleDateString() }}</div>
                     </div>
             </div>
@@ -45,10 +50,23 @@ export const SearchPuzzlesComponent = {
         async doSearch() {
             this.message = '搜索中...';
             this.searchResults = await PuzzleStorage.search(this.searchQuery);
+            await this._loadStatsForResults();
             if (this.searchResults.length === 0) {
                 this.message = '未找到相关题目';
             } else {
                 this.message = '找到 ' + this.searchResults.length + ' 道题目';
+            }
+        },
+        async _loadStatsForResults() {
+            for (const puzzle of this.searchResults) {
+                const stats = await PuzzleStorage.getStats(puzzle.id);
+                puzzle.stats = {
+                    totalChallenges: stats.totalChallenges,
+                    completedChallenges: stats.completedChallenges,
+                    passRate: stats.totalChallenges > 0
+                        ? (stats.completedChallenges / stats.totalChallenges * 100).toFixed(1) + '%'
+                        : '暂无'
+                };
             }
         }
     },
@@ -56,6 +74,7 @@ export const SearchPuzzlesComponent = {
         // 默认显示所有题目
         this.message = '加载中...';
         this.searchResults = await PuzzleStorage.getAll();
+        await this._loadStatsForResults();
         if (this.searchResults.length > 0) {
             this.message = '共 ' + this.searchResults.length + ' 道题目';
         } else {

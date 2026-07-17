@@ -109,4 +109,29 @@ export class PuzzleStorage {
             return [];
         }
     }
+
+    static async recordChallenge(puzzleId, userId, username, completed) {
+        try {
+            const res = await fetch('/api/puzzles/challenge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ puzzleId, userId, username, completed })
+            });
+            return await res.json();
+        } catch (e) {
+            console.error('记录挑战失败:', e);
+            return { success: false };
+        }
+    }
+
+    static async getStats(puzzleId) {
+        try {
+            const res = await fetch(`/api/puzzles/stats?id=${puzzleId}`);
+            const data = await res.json();
+            return data.stats || { totalChallenges: 0, completedChallenges: 0 };
+        } catch (e) {
+            console.error('获取统计失败:', e);
+            return { totalChallenges: 0, completedChallenges: 0 };
+        }
+    }
 }

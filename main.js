@@ -119,7 +119,20 @@ const app = createApp({
         },
 
         // ===== 游戏状态更新 =====
-        updateGame(newGame) { this.game = newGame; },
+        updateGame(newGame) {
+            // 记录挑战结果
+            if (newGame.complete && this.currentPuzzleData && this.currentUser) {
+                import('./api.js').then(({ PuzzleStorage }) => {
+                    PuzzleStorage.recordChallenge(
+                        this.currentPuzzleData.id,
+                        this.currentUser.id,
+                        this.currentUser.username,
+                        true
+                    );
+                });
+            }
+            this.game = newGame;
+        },
         updateHistoryMap(newMap) { this.historyMap = newMap; },
         updateStepPointer(newPtr) { this.stepPointer = newPtr; },
         updateZoom(newZoom) { this.zoom = newZoom; },

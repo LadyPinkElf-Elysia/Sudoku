@@ -28,6 +28,13 @@ export const CreatePuzzleComponent = {
                 </div>
             </div>
 
+            <!-- 统计数据 -->
+            <div v-if="stats" class="stats-bar">
+                <span class="stat-item">👥 挑战人数: {{ stats.totalChallenges }}</span>
+                <span class="stat-item">✅ 通过人数: {{ stats.completedChallenges }}</span>
+                <span class="stat-item">📊 通过率: {{ passRate }}</span>
+            </div>
+
             <div class="zoom-controls" style="margin-bottom:8px;">
                 <button class="zoom-btn" @click="zoomOut" :disabled="zoom <= 0.5">−</button>
                 <span class="zoom-text">{{ Math.round(zoom * 100) || 100 }}%</span>
@@ -90,7 +97,9 @@ export const CreatePuzzleComponent = {
             historyMap: {},
             stepPointer: -1,
             showVictory: false,
-            zoom: 1.0
+            zoom: 1.0,
+            stats: null,
+            submittedPuzzleId: null
         };
     },
     computed: {
@@ -103,6 +112,11 @@ export const CreatePuzzleComponent = {
         isComplete() {
             if (!this.gameBoard.length) return false;
             return SudokuGridHelper.checkComplete(this.gameBoard, this.SIZE);
+        },
+        passRate() {
+            if (!this.stats || this.stats.totalChallenges === 0) return '暂无数据';
+            const rate = (this.stats.completedChallenges / this.stats.totalChallenges * 100).toFixed(1);
+            return rate + '%';
         }
     },
     methods: {
@@ -114,6 +128,8 @@ export const CreatePuzzleComponent = {
             this.mode = 'edit';
             this.showVictory = false;
             this.zoom = 1.0;
+            this.stats = null;
+            this.submittedPuzzleId = null;
             this.$nextTick(() => this.renderCanvas());
         },
         renderCanvas() {
@@ -230,6 +246,9 @@ export const CreatePuzzleComponent = {
                 this.renderCanvas();
             }
         },
+        async loadStats(puzzleId) {
+            this.stats = await PuzzleStorage.getStats(puzzleId);
+        },
         async submitPuzzle() {
             this.message = '';
             const puzzle = this.board.map(row => [...row]);
@@ -241,7 +260,9 @@ export const CreatePuzzleComponent = {
             this.message = '正在保存...';
             const saveResult = await PuzzleStorage.add(this.currentUser.id, this.currentUser.username, puzzle, solution, SIZE, BOX_SIZE, this.puzzleTitle || undefined);
             if (saveResult.success) {
-                this.message = '✅ 题目保存成功！题目ID: ' + saveResult.puzzle.id;
+                this.submittedPuzzleId = saveResult.puzzle.id;
+                this.message = '✅ 题目保存成功！题目ID: ' + this.submittedPuzzleId;
+                this.loadStats(this.submittedPuzzleId);
                 this.clearBoard();
                 this.puzzleTitle = '';
             } else {

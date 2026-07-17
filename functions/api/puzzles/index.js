@@ -33,6 +33,25 @@ export async function onRequestPost(context) {
             }), { headers });
         }
 
+        // 记录挑战
+        if (path === '/challenge') {
+            const { puzzleId, userId, username, completed } = await request.json();
+
+            if (!puzzleId || !userId) {
+                return new Response(JSON.stringify({
+                    success: false, message: '缺少必要参数'
+                }), { headers });
+            }
+
+            await db.prepare(
+                'INSERT INTO challenges (puzzle_id, user_id, username, completed, created_at) VALUES (?, ?, ?, ?, ?)'
+            ).bind(puzzleId, userId, username || '', completed ? 1 : 0, Date.now()).run();
+
+            return new Response(JSON.stringify({
+                success: true
+            }), { headers });
+        }
+
         return new Response(JSON.stringify({
             success: false, message: 'Not Found'
         }), { status: 404, headers });
@@ -102,6 +121,32 @@ export async function onRequestGet(context) {
             ).first();
             return new Response(JSON.stringify({
                 success: true, puzzle: puzzle || null
+            }), { headers });
+        }
+
+        // 获取题目统计（挑战人数、通过人数）
+        if (path === '/stats') {
+            const puzzleId = url.searchParams.get('id');
+            if (!puzzleId) {
+                return new Response(JSON.stringify({
+                    success: false, message: '缺少题目ID'
+                }), { headers });
+            }
+
+            const totalResult = await db.prepare(
+                'SELECT COUNT(*) as count FROM challenges WHERE puzzle_id = ?'
+            ).bind(puzzleId).first();
+
+            const completedResult = await db.prepare(
+                'SELECT COUNT(*) as count FROM challenges WHERE puzzle_id = ? AND completed = 1'
+            ).bind(puzzleId).first();
+
+            return new Response(JSON.stringify({
+                success: true,
+                stats: {
+                    totalChallenges: Number(totalResult.count),
+                    completedChallenges: Number(completedResult.count)
+                }
             }), { headers });
         }
 
