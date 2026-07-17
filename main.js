@@ -173,7 +173,7 @@ const app = createApp({
                 this.createGameBoard = result.board;
                 this.createHistoryMap = result.historyMap;
                 this.createStepPointer = result.stepPointer;
-                if (result.complete) this.createShowVictory = true;
+                // 填完数据后不自动弹出胜利弹窗，由用户点击"提交题目"按钮触发
             }
         },
         onCreateCellClick(row, col) {
@@ -215,7 +215,7 @@ const app = createApp({
             const saveResult = await saveFn;
             if (saveResult.success) {
                 if (saveResult.puzzle) this.submittedPuzzleId = saveResult.puzzle.id;
-                this.createMessage = 'success';
+                this.goToPage(Pages.MAIN_MENU);
             } else { this.createMessage = saveResult.message || '保存失败'; }
         },
 
