@@ -1,9 +1,9 @@
 // CreatePuzzleComponent.js - 出题组件（先出题再解题）
 import { SudokuGameHelper } from '../SudokuGameHelper.js';
-import { PuzzleStorage } from '../PuzzleStorage.js';
-import { SudokuRenderer } from '../util/SudokuRenderer.js';
-import { SudokuGridHelper } from '../util/SudokuGridHelper.js';
-import { handleSudokuKeyDown } from '../util/SudokuKeyboard.js';
+import { PuzzleStorage } from '../api.js';
+import { handleSudokuKeyDown } from '../util/SudokuRenderer.js';
+import { SudokuGridHelper } from '../util/SudokuGrid.js';
+import { CanvasBoard } from '../util/CanvasBoard.js';
 
 export const CreatePuzzleComponent = {
     template: `
@@ -73,7 +73,7 @@ export const CreatePuzzleComponent = {
     emits: ['back'],
     data() {
         return {
-            mode: 'edit', // 'edit' | 'solve'
+            mode: 'edit',
             puzzleTitle: '',
             puzzleN: 3,
             message: '',
@@ -109,49 +109,32 @@ export const CreatePuzzleComponent = {
             this.$nextTick(() => this.renderCanvas());
         },
         renderCanvas() {
-            const canvas = document.getElementById('createCanvas');
-            if (!canvas) return;
             const board = this.mode === 'edit'
                 ? this.board.map(row => row.map(v => ({ value: v, editable: true, conflict: false, given: false })))
                 : this.gameBoard;
-            SudokuRenderer.draw(canvas, board, this.SIZE, this.BOX_SIZE, this.selectedRow, this.selectedCol, 1.0);
+            CanvasBoard.render('createCanvas', board, this.SIZE, this.BOX_SIZE, this.selectedRow, this.selectedCol, 1.0);
         },
         onCanvasClick(e) {
-            const canvas = document.getElementById('createCanvas');
-            if (!canvas) return;
-            const rect = canvas.getBoundingClientRect();
-            const displaySize = Math.floor(canvas.parentElement.clientWidth * 0.95);
-            const scale = rect.width / displaySize;
-            const x = (e.clientX - rect.left) / scale;
-            const y = (e.clientY - rect.top) / scale;
-            const cellSize = displaySize / this.SIZE;
-            const row = Math.floor(y / cellSize);
-            const col = Math.floor(x / cellSize);
-            if (row >= 0 && row < this.SIZE && col >= 0 && col < this.SIZE) {
-                // 解题模式下不可编辑 given 格子
-                if (this.mode === 'solve' && this.gameBoard[row][col].given) return;
-                this.selectedRow = row;
-                this.selectedCol = col;
-                this.renderCanvas();
-            }
+            const pos = CanvasBoard.getCellFromClick(e, 'createCanvas', this.SIZE);
+            if (!pos) return;
+            const { row, col } = pos;
+            if (this.mode === 'solve' && this.gameBoard[row][col].given) return;
+            this.selectedRow = row;
+            this.selectedCol = col;
+            this.renderCanvas();
         },
         inputNumber(num) {
             if (this.selectedRow === null || this.selectedCol === null) return;
             const r = this.selectedRow, c = this.selectedCol;
             
             if (this.mode === 'edit') {
-                // 出题模式：点击切换数字
                 this.board[r][c] = (this.board[r][c] === num) ? 0 : num;
             } else {
-                // 解题模式：不可编辑 given 格子
                 if (this.gameBoard[r][c].given) return;
-                // 保存历史
                 this.saveState();
                 this.gameBoard[r][c].value = (this.gameBoard[r][c].value === num) ? 0 : num;
                 this.gameBoard[r][c].conflict = false;
-                // 检查冲突
                 const messages = SudokuGridHelper.updateConflictsLocal(this.gameBoard, r, c, this.BOX_SIZE, this.SIZE);
-                // 检查完成
                 if (SudokuGridHelper.checkComplete(this.gameBoard, this.SIZE)) {
                     this.showVictory = true;
                 }
@@ -198,7 +181,6 @@ export const CreatePuzzleComponent = {
             this.$nextTick(() => this.renderCanvas());
         },
         startSolving() {
-            // 将题目转换为游戏棋盘（given 格子不可编辑）
             this.gameBoard = this.board.map(row =>
                 row.map(v => ({
                     value: v,
@@ -242,38 +224,14 @@ export const CreatePuzzleComponent = {
         },
         async submitPuzzle() {
             this.message = '';
-            
             const puzzle = this.board.map(row => [...row]);
-            
-            if (!this.hasPuzzle) {
-                this.message = '请在棋盘上输入题目';
-                return;
-            }
-            
+            if (!this.hasPuzzle) { this.message = '请在棋盘上输入题目'; return; }
             const SIZE = puzzle.length;
             const BOX_SIZE = this.puzzleN;
-            
-            // 从解题结果中提取参考答案
             const solution = this.gameBoard.map(row => row.map(cell => cell.value));
-            
-            // 验证参考答案是否完整
-            if (!SudokuGridHelper.checkComplete(solution, SIZE)) {
-                this.message = '请先完成解题再提交';
-                return;
-            }
-            
-            // 保存题目
+            if (!SudokuGridHelper.checkComplete(solution, SIZE)) { this.message = '请先完成解题再提交'; return; }
             this.message = '正在保存...';
-            const saveResult = await PuzzleStorage.add(
-                this.currentUser.id,
-                this.currentUser.username,
-                puzzle,
-                solution,
-                SIZE,
-                BOX_SIZE,
-                this.puzzleTitle || undefined
-            );
-            
+            const saveResult = await PuzzleStorage.add(this.currentUser.id, this.currentUser.username, puzzle, solution, SIZE, BOX_SIZE, this.puzzleTitle || undefined);
             if (saveResult.success) {
                 this.message = '✅ 题目保存成功！题目ID: ' + saveResult.puzzle.id;
                 this.clearBoard();
@@ -284,13 +242,8 @@ export const CreatePuzzleComponent = {
         },
         handleKeyDown(e) {
             handleSudokuKeyDown(e, {
-                started: true,
-                isGenerating: false,
-                complete: false,
-                over: false,
-                SIZE: this.SIZE,
-                selectedRow: this.selectedRow,
-                selectedCol: this.selectedCol
+                started: true, isGenerating: false, complete: false, over: false,
+                SIZE: this.SIZE, selectedRow: this.selectedRow, selectedCol: this.selectedCol
             }, {
                 inputNumber: (num) => this.inputNumber(num),
                 clearSelected: () => this.clearSelected(),
@@ -308,16 +261,12 @@ export const CreatePuzzleComponent = {
     mounted() {
         this.initBoard();
         this.$nextTick(() => {
-            const canvas = document.getElementById('createCanvas');
-            if (canvas) {
-                canvas.addEventListener('click', (e) => this.onCanvasClick(e));
-            }
+            CanvasBoard.bindClick((e) => this.onCanvasClick(e), 'createCanvas');
         });
         document.addEventListener('keydown', this.handleKeyDown);
     },
     beforeUnmount() {
         document.removeEventListener('keydown', this.handleKeyDown);
-        const canvas = document.getElementById('createCanvas');
-        if (canvas) canvas.removeEventListener('click', this.onCanvasClick);
+        CanvasBoard.unbindClick(this.onCanvasClick, 'createCanvas');
     }
 };

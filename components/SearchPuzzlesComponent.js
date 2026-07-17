@@ -1,5 +1,5 @@
 // SearchPuzzlesComponent.js - 搜索题目组件
-import { PuzzleStorage } from '../PuzzleStorage.js';
+import { PuzzleStorage } from '../api.js';
 
 export const SearchPuzzlesComponent = {
     template: `

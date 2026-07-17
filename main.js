@@ -1,6 +1,7 @@
-// main.js
-const { createApp, markRaw } = Vue;
-import { SudokuGameHelper } from './SudokuGameHelper.js';
+// main.js - 应用入口
+const { createApp } = Vue;
+import { SudokuGenerator } from './util/SudokuGenerator.js';
+import { GameStateManager } from './util/GameStateManager.js';
 import { LoginComponent } from './components/LoginComponent.js';
 import { MainMenuComponent } from './components/MainMenuComponent.js';
 import { ConfigComponent } from './components/ConfigComponent.js';
@@ -8,185 +9,130 @@ import { CreatePuzzleComponent } from './components/CreatePuzzleComponent.js';
 import { SearchPuzzlesComponent } from './components/SearchPuzzlesComponent.js';
 import { GameComponent } from './components/GameComponent.js';
 
-// Web Worker 管理
-let sudokuWorker = null;
-const getWorker = () => {
-    if (!sudokuWorker) {
-        sudokuWorker = new Worker(`./util/SudokuWorker.js?t=${Date.now()}`, { type: 'module' });
-    }
-    return sudokuWorker;
-};
-
 const app = createApp({
     data() {
         return {
             page: 'login',
             currentUser: null,
-            config: { N: 3, NMin: 3, NMax: 6, blanks: null, mode: 'infinite', errorLimit: 0, errorLimitMin: 0, errorLimitMax: 99 },
-            game: { started: false, errors: 0, over: false, complete: false, board: [], selectedRow: null, selectedCol: null, conflictMessages: [], hintMessage: '', isGenerating: false },
-            historyMap: {}, stepPointer: -1, zoom: 1.0, BOX_SIZE: 0, SIZE: 0,
+            config: GameStateManager.createDefaultConfig(),
+            game: GameStateManager.createDefaultState(),
+            historyMap: {},
+            stepPointer: -1,
+            zoom: 1.0,
+            BOX_SIZE: 0,
+            SIZE: 0,
             currentPuzzleData: null
         };
     },
     computed: {
-        minBlanks() { if (!this.config.N) return 0; const total = this.config.N * this.config.N * this.config.N * this.config.N; return Math.ceil(total * 0.10); },
-        maxBlanks() { if (!this.config.N) return 0; const total = this.config.N * this.config.N * this.config.N * this.config.N; return Math.floor(total * 0.40); }
-    },
-    watch: { 
-        'config.N'() { 
-            this.config.N = Math.max(this.config.NMin, Math.min(this.config.NMax, this.config.N));
-            if (this.config.blanks < this.minBlanks) this.config.blanks = this.minBlanks; 
-            if (this.config.blanks > this.maxBlanks) this.config.blanks = this.maxBlanks; 
+        blanksRange() {
+            return GameStateManager.calcBlanksRange(this.config.N);
         },
-        'config.blanks'() {
-            this.config.blanks = Math.max(this.minBlanks, Math.min(this.maxBlanks, this.config.blanks));
+        minBlanks() { return this.blanksRange.min; },
+        maxBlanks() { return this.blanksRange.max; }
+    },
+    watch: {
+        'config.N'(val) {
+            this.config.N = GameStateManager.validateN(val, this.config.NMin, this.config.NMax);
+            const { min, max } = this.blanksRange;
+            if (this.config.blanks < min) this.config.blanks = min;
+            if (this.config.blanks > max) this.config.blanks = max;
+        },
+        'config.blanks'(val) {
+            const { min, max } = this.blanksRange;
+            this.config.blanks = GameStateManager.validateBlanks(val, min, max);
         }
     },
     methods: {
         // ===== 页面导航 =====
-        onLogin(user) {
-            this.currentUser = user;
-            this.page = 'mainMenu';
-        },
-        onLogout() {
-            this.currentUser = null;
-            this.page = 'login';
-        },
+        onLogin(user) { this.currentUser = user; this.page = 'mainMenu'; },
+        onLogout() { this.currentUser = null; this.page = 'login'; },
         goToConfig() { this.page = 'config'; },
         goToCreatePuzzle() { this.page = 'createPuzzle'; },
         goToSearchPuzzles() { this.page = 'searchPuzzles'; },
         goToMainMenu() { this.page = 'mainMenu'; },
-        
+        startSystemGame() { this.page = 'config'; },
+
         // ===== 游戏启动 =====
-        startSystemGame() {
-            this.page = 'config';
-        },
-        startFromConfig() {
+        async startFromConfig() {
             if (this.game.isGenerating) return;
-            
+
             let blanks = this.config.blanks !== null ? this.config.blanks : this.minBlanks;
-            blanks = Math.max(this.minBlanks, Math.min(this.maxBlanks, blanks));
+            const { min, max } = this.blanksRange;
+            blanks = GameStateManager.validateBlanks(blanks, min, max);
             this.config.blanks = blanks;
-            this.game.errors = 0;
-            this.game.over = false;
-            this.game.complete = false;
-            this.game.started = true;
-            this.game.isGenerating = true;
-            this.currentPuzzleData = null;
+
             this.BOX_SIZE = this.config.N;
             this.SIZE = this.config.N * this.config.N;
-            
-            // 立即切换到游戏页面显示加载遮罩
+
+            // 重置游戏状态
+            this.game = { ...GameStateManager.createDefaultState(), isGenerating: true };
+            this.currentPuzzleData = null;
             this.page = 'game';
-            
-            if (sudokuWorker) sudokuWorker.terminate();
-            sudokuWorker = null;
-            const worker = getWorker();
-            
-            const handleMessage = (e) => {
-                if (e.data.type === 'generateComplete' && e.data.success) {
-                    this._applyBoard(e.data.puzzle);
-                    worker.removeEventListener('message', handleMessage);
-                    worker.removeEventListener('error', handleError);
-                } else if (e.data.type === 'generateError') {
-                    console.error('Worker generation error:', e.data.error);
-                    this.game.isGenerating = false;
-                    worker.removeEventListener('message', handleMessage);
-                    worker.removeEventListener('error', handleError);
-                    this._generateSynchronous();
-                }
-            };
-            
-            const handleError = (error) => {
-                console.error('Worker error:', error);
-                this.game.isGenerating = false;
-                worker.removeEventListener('message', handleMessage);
-                worker.removeEventListener('error', handleError);
-                this._generateSynchronous();
-            };
-            
-            worker.addEventListener('message', handleMessage);
-            worker.addEventListener('error', handleError);
-            
-            worker.postMessage({
-                type: 'generate',
-                BOX_SIZE: this.BOX_SIZE,
-                SIZE: this.SIZE,
-                blanks: this.config.blanks
-            });
-        },
-        _generateSynchronous() {
-            const puzzle = SudokuGameHelper.generateSync(this.BOX_SIZE, this.SIZE, this.config.blanks);
-            this._applyBoard(puzzle);
+
+            try {
+                const puzzle = await SudokuGenerator.generate(this.BOX_SIZE, this.SIZE, blanks);
+                this._applyBoard(puzzle);
+            } catch (e) {
+                console.error('生成失败:', e);
+                const puzzle = SudokuGenerator.generateSync(this.BOX_SIZE, this.SIZE, blanks);
+                this._applyBoard(puzzle);
+            }
         },
         _applyBoard(puzzle) {
-            this.game.board = SudokuGameHelper.createBoard(puzzle);
-            this.game.selectedRow = null; this.game.selectedCol = null;
-            this.game.conflictMessages = [];
-            this.historyMap = {}; this.stepPointer = -1;
-            this.game.hintMessage = ''; this.zoom = 1.0;
-            this.game.isGenerating = false;
-            this.saveState();
+            const init = GameStateManager.initGame(puzzle);
+            this.game = { ...this.game, ...init, isGenerating: false };
+            this.historyMap = init.historyMap;
+            this.stepPointer = init.stepPointer;
+            this.zoom = init.zoom;
         },
-        saveState() {
-            const result = SudokuGameHelper.saveState(this.historyMap, this.stepPointer, this.game.board);
-            this.historyMap = result.newHistoryMap;
-            this.stepPointer = result.newStepPointer;
-            this.game.hintMessage = '';
-        },
-        
+
         // ===== 用户题目 =====
         startUserPuzzle(puzzleData) {
             this.currentPuzzleData = puzzleData;
             this.SIZE = puzzleData.size || puzzleData.SIZE;
             this.BOX_SIZE = puzzleData.box_size || puzzleData.BOX_SIZE;
             this.config.N = this.BOX_SIZE;
-            
-            this.game.errors = 0;
-            this.game.over = false;
-            this.game.complete = false;
-            this.game.started = true;
-            this.game.isGenerating = false;
-            
-            // 解析题目数据（API 返回的是 JSON 字符串）
+
             let puzzle = puzzleData.puzzle_data || puzzleData.puzzle;
             if (typeof puzzle === 'string') {
-                try { puzzle = JSON.parse(puzzle); } catch(e) { console.error('解析题目失败:', e); puzzle = []; }
+                try { puzzle = JSON.parse(puzzle); } catch (e) { console.error('解析题目失败:', e); puzzle = []; }
             }
             if (!Array.isArray(puzzle) || puzzle.length === 0) {
                 console.error('无效的题目数据:', puzzleData);
                 alert('题目数据无效，无法开始游戏');
                 return;
             }
-            this._applyBoard(puzzle);
+
+            this.game = GameStateManager.applyPuzzle(this.game, puzzle);
+            this.historyMap = {};
+            this.stepPointer = -1;
+            this.zoom = 1.0;
             this.page = 'game';
         },
         async startRandomUserPuzzle() {
-            const { PuzzleStorage } = await import('./PuzzleStorage.js');
+            const { PuzzleStorage } = await import('./api.js');
             const puzzle = await PuzzleStorage.getRandom();
-            if (!puzzle) {
-                alert('暂无用户题目');
-                return;
-            }
+            if (!puzzle) { alert('暂无用户题目'); return; }
             this.startUserPuzzle(puzzle);
         },
-        
+
         // ===== 游戏重置 =====
         resetGame() {
             if (this.game.isGenerating) return;
-            this.game.started = false;
-            this.game.hintMessage = '';
+            SudokuGenerator.abort();
+            this.game = { ...GameStateManager.createDefaultState(), hintMessage: '' };
             this.page = 'mainMenu';
         },
-        
+
         // ===== 游戏状态更新 =====
         updateGame(newGame) { this.game = newGame; },
         updateHistoryMap(newMap) { this.historyMap = newMap; },
         updateStepPointer(newPtr) { this.stepPointer = newPtr; },
         updateZoom(newZoom) { this.zoom = newZoom; }
     },
-    mounted() { 
-        this.config.blanks = this.minBlanks; 
+    mounted() {
+        this.config.blanks = this.minBlanks;
     }
 });
 

@@ -1,6 +1,5 @@
 // SudokuGameHelper.js - 游戏辅助功能（含历史记录管理）
-import { SudokuGridHelper } from './util/SudokuGridHelper.js';
-import { GridUtils } from './util/SudokuGridUtils.js';
+import { SudokuGridHelper, GridUtils } from './util/SudokuGrid.js';
 
 export class SudokuGameHelper {
     // ===== 历史记录管理 =====

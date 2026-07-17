@@ -1,5 +1,5 @@
 // SudokuWorker.js - Web Worker for Sudoku generation
-import { GridUtils } from './SudokuGridUtils.js';
+import { GridUtils } from './SudokuGrid.js';
 
 // Worker 消息处理
 self.onmessage = function(e) {

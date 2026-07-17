@@ -1,4 +1,37 @@
-// SudokuRenderer.js - Canvas 渲染（单一职责）
+// SudokuRenderer.js - Canvas 渲染 + 键盘事件处理（合并版）
+
+// ===== 键盘事件处理 =====
+export function handleSudokuKeyDown(e, state, callbacks) {
+    if (!state.started || state.isGenerating || state.complete || state.over) return;
+    
+    const key = e.key;
+    if (key >= '1' && key <= '9') {
+        const num = parseInt(key);
+        if (num <= state.SIZE) callbacks.inputNumber(num);
+    } else if (key === 'Backspace' || key === 'Delete' || key === '0') {
+        callbacks.clearSelected();
+    } else if (key === 'ArrowUp' && state.selectedRow !== null) {
+        e.preventDefault();
+        callbacks.selectCell(Math.max(0, state.selectedRow - 1), state.selectedCol);
+    } else if (key === 'ArrowDown' && state.selectedRow !== null) {
+        e.preventDefault();
+        callbacks.selectCell(Math.min(state.SIZE - 1, state.selectedRow + 1), state.selectedCol);
+    } else if (key === 'ArrowLeft' && state.selectedCol !== null) {
+        e.preventDefault();
+        callbacks.selectCell(state.selectedRow, Math.max(0, state.selectedCol - 1));
+    } else if (key === 'ArrowRight' && state.selectedCol !== null) {
+        e.preventDefault();
+        callbacks.selectCell(state.selectedRow, Math.min(state.SIZE - 1, state.selectedCol + 1));
+    } else if (key === 'z' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        e.shiftKey ? callbacks.redo() : callbacks.undo();
+    } else if (key === 'y' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        callbacks.redo();
+    }
+}
+
+// ===== Canvas 渲染 =====
 export class SudokuRenderer {
     static draw(canvas, board, SIZE, BOX_SIZE, selectedRow, selectedCol, zoom = 1.0) {
         if (!canvas || !board || board.length === 0) return;
@@ -6,14 +39,10 @@ export class SudokuRenderer {
         const ctx = canvas.getContext('2d');
         const dpr = window.devicePixelRatio || 1;
         
-        // 获取父容器实际显示宽度
         const displaySize = Math.floor(canvas.parentElement.clientWidth * 0.95);
-        
-        // 根据 zoom 计算实际像素尺寸（高DPI）
         const pixelSize = Math.floor(displaySize * zoom * dpr);
         const cssSize = Math.floor(displaySize * zoom);
         
-        // 只在尺寸变化时重新设置 Canvas 缓冲区
         if (canvas.width !== pixelSize || canvas.height !== pixelSize) {
             canvas.width = pixelSize;
             canvas.height = pixelSize;
@@ -21,25 +50,21 @@ export class SudokuRenderer {
             canvas.style.height = cssSize + 'px';
         }
         
-        // 缩放上下文以匹配 DPR
         ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, 0, 0);
         
         const cellSize = displaySize / SIZE;
 
         ctx.clearRect(0, 0, displaySize, displaySize);
         
-        // 1. 棋盘整体背景
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, displaySize, displaySize);
         
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
-        // 预计算宫格索引
         const boxRow = selectedRow !== null ? Math.floor(selectedRow / BOX_SIZE) : -1;
         const boxCol = selectedCol !== null ? Math.floor(selectedCol / BOX_SIZE) : -1;
 
-        // 2. 绘制所有单元格背景
         for (let r = 0; r < SIZE; r++) {
             for (let c = 0; c < SIZE; c++) {
                 const cell = board[r][c];
@@ -61,7 +86,6 @@ export class SudokuRenderer {
             }
         }
 
-        // 3. 绘制数字
         for (let r = 0; r < SIZE; r++) {
             for (let c = 0; c < SIZE; c++) {
                 const cell = board[r][c];
@@ -82,7 +106,6 @@ export class SudokuRenderer {
             }
         }
 
-        // 4. 绘制冲突固定题目的橙色边框
         ctx.strokeStyle = '#fbbf24';
         ctx.lineWidth = 2;
         for (let r = 0; r < SIZE; r++) {
@@ -95,7 +118,6 @@ export class SudokuRenderer {
             }
         }
 
-        // 5. 绘制宫格粗线（路径批处理）
         ctx.strokeStyle = '#374151';
         ctx.lineWidth = 2;
         ctx.beginPath();
@@ -108,12 +130,11 @@ export class SudokuRenderer {
         }
         ctx.stroke();
 
-        // 6. 绘制细网格线（宫格内部的线）
         ctx.strokeStyle = '#d1d5db';
         ctx.lineWidth = 0.5;
         ctx.beginPath();
         for (let i = 1; i < SIZE; i++) {
-            if (i % BOX_SIZE === 0) continue; // 宫格线已画
+            if (i % BOX_SIZE === 0) continue;
             const pos = i * cellSize;
             ctx.moveTo(pos, 0);
             ctx.lineTo(pos, displaySize);
@@ -122,7 +143,6 @@ export class SudokuRenderer {
         }
         ctx.stroke();
 
-        // 7. 绘制外边框
         ctx.strokeStyle = '#374151';
         ctx.lineWidth = 2.5;
         ctx.strokeRect(0.5, 0.5, displaySize - 1, displaySize - 1);

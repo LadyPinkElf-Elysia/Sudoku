@@ -1,4 +1,6 @@
 // ConfigComponent.js - 游戏配置组件
+import { GameStateManager } from '../util/GameStateManager.js';
+
 export const ConfigComponent = {
     template: `
         <div class="config-panel">
@@ -56,11 +58,11 @@ export const ConfigComponent = {
     },
     methods: {
         onNChange() {
-            this.localN = Math.max(this.config.NMin, Math.min(this.config.NMax, this.localN || this.config.NMin));
+            this.localN = GameStateManager.validateN(this.localN || this.config.NMin, this.config.NMin, this.config.NMax);
             this.config.N = this.localN;
         },
         onBlanksChange() {
-            this.localBlanks = Math.max(this.minBlanks, Math.min(this.maxBlanks, this.localBlanks || this.minBlanks));
+            this.localBlanks = GameStateManager.validateBlanks(this.localBlanks || this.minBlanks, this.minBlanks, this.maxBlanks);
             this.config.blanks = this.localBlanks;
         },
         onStart() {
