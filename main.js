@@ -36,6 +36,7 @@ const app = createApp({
             createHistoryMap: {},
             createStepPointer: -1,
             createShowVictory: false,
+            createSubmitted: false,
             createStats: null,
             submittedPuzzleId: null,
             searchQuery: '',
@@ -95,6 +96,7 @@ const app = createApp({
             this.createHistoryMap = {};
             this.createStepPointer = -1;
             this.createShowVictory = false;
+            this.createSubmitted = false;
             this.createStats = null;
             this.submittedPuzzleId = null;
         },
@@ -215,6 +217,7 @@ const app = createApp({
             const saveResult = await saveFn;
             if (saveResult.success) {
                 if (saveResult.puzzle) this.submittedPuzzleId = saveResult.puzzle.id;
+                this.createSubmitted = true;
                 this.createMessage = 'success';
             } else { this.createMessage = saveResult.message || '保存失败'; }
         },
@@ -265,11 +268,11 @@ const app = createApp({
         // ===== 用户题目 =====
         startUserPuzzle(puzzleData) {
             this.currentPuzzleData = puzzleData;
-            const size = puzzleData.size || puzzleData.SIZE;
-            const n = Math.round(Math.sqrt(size));
-            this.config.boxSize = n;
             const puzzle = this._parsePuzzleStr(puzzleData);
-            const hintsRemaining = (n - 1) * (n - 1);
+            const size = puzzleData.size || puzzleData.SIZE || (puzzle.length > 0 ? puzzle.length : 9);
+            const n = Math.round(Math.sqrt(size));
+            this.config.boxSize = Math.max(2, Math.min(6, n || 3));
+            const hintsRemaining = (n > 0 ? (n - 1) * (n - 1) : 4);
             this.game = { ...BoardManager.applyPuzzle(this.game, puzzle), hintsRemaining, startTime: Date.now() };
             this.historyMap = {};
             this.stepPointer = -1;

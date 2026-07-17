@@ -35,7 +35,7 @@ export const MyPuzzlesComponent = {
                     </div>
 
                     <div class="card-actions" v-if="!isReadonly">
-                        <button class="btn btn-secondary btn-sm" @click="$emit('editPuzzle', puzzle)">✏️ 修改</button>
+                        <button class="btn btn-secondary btn-sm" @click="$emit('edit-puzzle', puzzle)">✏️ 修改</button>
                     </div>
                 </div>
             </div>
@@ -48,7 +48,7 @@ export const MyPuzzlesComponent = {
         message: { type: String, default: '' },
         loading: { type: Boolean, default: false }
     },
-    emits: ['back', 'editPuzzle'],
+    emits: ['back', 'edit-puzzle'],
     computed: {
         isReadonly() { return this.viewUserId !== null && this.viewUserId !== this.currentUser.id; }
     }

@@ -13,12 +13,12 @@ export const MainMenuComponent = {
             <div class="menu-section">
                 <h3>🎮 游戏模式</h3>
                 <div class="menu-options">
-                    <div class="menu-card" @click="$emit('startSystemGame')">
+                    <div class="menu-card" @click="$emit('start-system-game')">
                         <div class="menu-card-icon">🤖</div>
                         <div class="menu-card-title">系统随机生成</div>
                         <div class="menu-card-desc">由系统自动生成数独题目</div>
                     </div>
-                    <div class="menu-card" @click="$emit('startRandomUserPuzzle')">
+                    <div class="menu-card" @click="$emit('start-random-user-puzzle')">
                         <div class="menu-card-icon">🎲</div>
                         <div class="menu-card-title">随机挑战用户题目</div>
                         <div class="menu-card-desc">从所有用户创建的题目中随机选择一道</div>
@@ -39,7 +39,7 @@ export const MainMenuComponent = {
                         <div class="menu-card-title">我的题目</div>
                         <div class="menu-card-desc">查看和修改自己出的题目</div>
                     </div>
-                    <div class="menu-card" @click="$emit('searchPuzzles')">
+                    <div class="menu-card" @click="$emit('search-puzzles')">
                         <div class="menu-card-icon">🔍</div>
                         <div class="menu-card-title">搜索题目</div>
                         <div class="menu-card-desc">搜索并挑战其他用户的题目</div>
@@ -51,7 +51,7 @@ export const MainMenuComponent = {
     props: {
         currentUser: { type: Object, required: true }
     },
-    emits: ['startSystemGame', 'startRandomUserPuzzle', 'createPuzzle', 'myPuzzles', 'searchPuzzles', 'logout', 'randomPuzzleError'],
+    emits: ['start-system-game', 'start-random-user-puzzle', 'create-puzzle', 'my-puzzles', 'search-puzzles', 'logout', 'random-puzzle-error'],
     computed: {
         isGuest() { return this.currentUser && this.currentUser.isGuest; }
     },
@@ -61,14 +61,14 @@ export const MainMenuComponent = {
                 alert('⚠️ 游客模式无法出题，请登录或注册账号后使用此功能');
                 return;
             }
-            this.$emit('createPuzzle');
+            this.$emit('create-puzzle');
         },
         handleMyPuzzles() {
             if (this.isGuest) {
                 alert('⚠️ 游客模式无法查看我的题目，请登录或注册账号后使用此功能');
                 return;
             }
-            this.$emit('myPuzzles');
+            this.$emit('my-puzzles');
         }
     }
 };

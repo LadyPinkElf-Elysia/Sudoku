@@ -77,7 +77,7 @@ export const CreatePuzzleComponent = {
                 </div>
             </div>
 
-            <div class="victory-overlay" v-if="submittedPuzzleId && submitSuccess">
+            <div class="victory-overlay" v-if="createSubmitted && submitSuccess">
                 <div class="victory-dialog">
                     <h3>✅ 提交成功！</h3>
                     <p>题目已成功保存</p>
@@ -99,6 +99,7 @@ export const CreatePuzzleComponent = {
         historyMap: { type: Object, default: () => ({}) },
         stepPointer: { type: Number, default: -1 },
         showVictory: { type: Boolean, default: false },
+        createSubmitted: { type: Boolean, default: false },
         stats: { type: Object, default: null }
     },
     emits: [

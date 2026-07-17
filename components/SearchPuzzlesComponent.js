@@ -21,7 +21,7 @@ export const SearchPuzzlesComponent = {
                             <span class="puzzle-size">{{ puzzle.size || puzzle.SIZE }}×{{ puzzle.size || puzzle.SIZE }}</span>
                         </div>
                         <div class="card-title">{{ puzzle.title }}</div>
-                        <div class="card-author" @click.stop="$emit('viewUserPuzzles', puzzle.user_id || puzzle.userId)">👤 {{ puzzle.username }} (ID: {{ puzzle.user_id || puzzle.userId }})</div>
+                        <div class="card-author" @click.stop="$emit('view-user-puzzles', puzzle.user_id || puzzle.userId)">👤 {{ puzzle.username }} (ID: {{ puzzle.user_id || puzzle.userId }})</div>
                         <div class="card-stats" v-if="puzzle.stats">
                             <span>👥 {{ puzzle.stats.totalChallenges }}</span>
                             <span>✅ {{ puzzle.stats.completedChallenges }}</span>
@@ -42,7 +42,7 @@ export const SearchPuzzlesComponent = {
         searchResults: { type: Array, default: () => [] },
         message: { type: String, default: '' }
     },
-    emits: ['back', 'startPuzzle', 'viewUserPuzzles', 'search', 'update:searchQuery', 'startPuzzleError'],
+    emits: ['back', 'start-puzzle', 'view-user-puzzles', 'search', 'update:searchQuery', 'start-puzzle-error'],
     computed: {
         displayMessage() {
             if (this.message) return this.message;
@@ -60,10 +60,10 @@ export const SearchPuzzlesComponent = {
                 parsed = str;
             }
             if (!Array.isArray(parsed) || parsed.length === 0) {
-                this.$emit('startPuzzleError', '题目数据无效，无法开始游戏');
+                this.$emit('start-puzzle-error', '题目数据无效，无法开始游戏');
                 return;
             }
-            this.$emit('startPuzzle', puzzle);
+            this.$emit('start-puzzle', puzzle);
         }
     }
 };
