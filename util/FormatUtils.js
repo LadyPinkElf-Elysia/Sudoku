@@ -23,7 +23,25 @@ export class FormatUtils {
         return rate + '%';
     }
 
-    // ===== 游戏状态 =====
+    static formatStats(stats) {
+        if (!stats) return null;
+        return {
+            totalChallenges: stats.totalChallenges || 0,
+            completedChallenges: stats.completedChallenges || 0,
+            passRate: stats.totalChallenges > 0 ? (stats.completedChallenges / stats.totalChallenges * 100).toFixed(1) + '%' : '暂无',
+            avgTime: stats.avgTime || 0,
+            avgTimeFormatted: stats.avgTime > 0 ? Math.floor(stats.avgTime / 60) + '分' + (stats.avgTime % 60) + '秒' : ''
+        };
+    }
+
+    static parsePuzzleStr(puzzleData) {
+        const str = puzzleData.puzzle_data || puzzleData.puzzle;
+        if (typeof str === 'string') {
+            try { return JSON.parse(str); } catch (e) { return []; }
+        }
+        return str || [];
+    }
+
     static createDefaultState() {
         return {
             started: false, errors: 0, over: false, complete: false,
@@ -47,4 +65,8 @@ export class FormatUtils {
         const total = N * N * N * N;
         return { min: Math.ceil(total * 0.10), max: Math.floor(total * 0.40) };
     }
+
+    static calcSize(boxSize) { return boxSize * boxSize; }
+
+    static calcHintsRemaining(boxSize) { return (boxSize - 1) * (boxSize - 1); }
 }

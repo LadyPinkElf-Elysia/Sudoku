@@ -50,9 +50,8 @@ const app = createApp({
     computed: {
         blanksRange() { return FormatUtils.calcBlanksRange(this.config.boxSize); },
         boxSize() { return this.config.boxSize; },
-        size() { return this.config.boxSize * this.config.boxSize; },
-        createBoxSize() { return this.createBoxSize; },
-        createSize() { return this.createBoxSize * this.createBoxSize; }
+        size() { return FormatUtils.calcSize(this.config.boxSize); },
+        createSize() { return FormatUtils.calcSize(this.createBoxSize); }
     },
     watch: {
         'config.boxSize'(val) {
@@ -69,20 +68,6 @@ const app = createApp({
     methods: {
         goToPage(page) { this.page = page; },
 
-        _formatStats(stats) {
-            return {
-                totalChallenges: stats.totalChallenges,
-                completedChallenges: stats.completedChallenges,
-                passRate: stats.totalChallenges > 0 ? (stats.completedChallenges / stats.totalChallenges * 100).toFixed(1) + '%' : '暂无',
-                avgTime: stats.avgTime || 0,
-                avgTimeFormatted: stats.avgTime > 0 ? Math.floor(stats.avgTime / 60) + '分' + (stats.avgTime % 60) + '秒' : ''
-            };
-        },
-        _parsePuzzleStr(puzzleData) {
-            const str = puzzleData.puzzle_data || puzzleData.puzzle;
-            if (typeof str === 'string') { try { return JSON.parse(str); } catch (e) { return []; } }
-            return str;
-        },
         _resetCreateState() {
             this.createPuzzleMode = 'edit';
             this.puzzleTitle = '';
@@ -120,7 +105,7 @@ const app = createApp({
         goToCreatePuzzle() {
             this.editPuzzleData = null;
             this._resetCreateState();
-            this._initCreateBoard();
+            this.createBoard = BoardManager.createEmptyBoard(this.createSize);
             this.goToPage(Pages.CREATE_PUZZLE);
         },
         async goToSearchPuzzles() {
@@ -143,19 +128,18 @@ const app = createApp({
         editPuzzle(puzzle) {
             this.editPuzzleData = puzzle;
             this._resetCreateState();
-            const parsed = this._parsePuzzleStr(puzzle);
+            const parsed = FormatUtils.parsePuzzleStr(puzzle);
             if (Array.isArray(parsed) && parsed.length > 0) {
                 this.createBoxSize = Math.round(Math.sqrt(parsed.length));
                 this.puzzleTitle = puzzle.title || '';
                 this.createBoard = parsed.map(row => [...row]);
                 this.submittedPuzzleId = puzzle.id;
-                PuzzleStorage.getStats(puzzle.id).then(s => this.createStats = this._formatStats(s));
+                PuzzleStorage.getStats(puzzle.id).then(s => this.createStats = FormatUtils.formatStats(s));
             }
             this.goToPage(Pages.CREATE_PUZZLE);
         },
 
         // ===== CreatePuzzle 操作 =====
-        _initCreateBoard() { this.createBoard = BoardManager.createEmptyBoard(this.createSize); },
         _createOperateCell(num) {
             if (this.createSelectedRow === null || this.createSelectedCol === null) return;
             const r = this.createSelectedRow, c = this.createSelectedCol;
@@ -173,7 +157,6 @@ const app = createApp({
                 this.createGameBoard = result.board;
                 this.createHistoryMap = result.historyMap;
                 this.createStepPointer = result.stepPointer;
-                // 填完数据后不自动弹出胜利弹窗，由用户点击"提交题目"按钮触发
             }
         },
         onCreateCellClick(row, col) {
@@ -192,7 +175,7 @@ const app = createApp({
             if (result) this.createGameBoard = result.board;
         },
         onCreateClearBoard() {
-            this._initCreateBoard();
+            this.createBoard = BoardManager.createEmptyBoard(this.createSize);
             this.createSelectedRow = null;
             this.createSelectedCol = null;
             this.createPuzzleMode = 'edit';
@@ -227,7 +210,7 @@ const app = createApp({
         async _loadPuzzleStats(puzzles) {
             for (const puzzle of puzzles) {
                 const stats = await PuzzleStorage.getStats(puzzle.id);
-                puzzle.stats = this._formatStats(stats);
+                puzzle.stats = FormatUtils.formatStats(stats);
             }
         },
 
@@ -268,8 +251,8 @@ const app = createApp({
             const size = puzzleData.size || puzzleData.SIZE;
             const n = Math.round(Math.sqrt(size));
             this.config.boxSize = n;
-            const puzzle = this._parsePuzzleStr(puzzleData);
-            const hintsRemaining = (n - 1) * (n - 1);
+            const puzzle = FormatUtils.parsePuzzleStr(puzzleData);
+            const hintsRemaining = FormatUtils.calcHintsRemaining(n);
             this.game = { ...BoardManager.applyPuzzle(this.game, puzzle), hintsRemaining, startTime: Date.now() };
             this.historyMap = {};
             this.stepPointer = -1;

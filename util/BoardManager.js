@@ -45,7 +45,7 @@ function drawCanvas(canvas, board, SIZE, BOX_SIZE, selectedRow, selectedCol, zoo
             if (cell.value === 0) continue;
             const x = c * cellSize, y = r * cellSize;
             const fontSize = Math.round(cellSize * 0.45);
-            ctx.font = `500 ${fontSize}px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`;
+            ctx.font = '500 ' + fontSize + 'px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
             ctx.fillStyle = cell.conflict ? '#dc2626' : (cell.editable ? '#475569' : '#1f2937');
             ctx.fillText(cell.value, x + cellSize / 2, y + cellSize / 2);
         }
@@ -120,7 +120,7 @@ function handleKeyDown(e, state, callbacks) {
 }
 
 export class BoardManager {
-    // ===== 棋盘生成 =====
+    // ===== 棋盘格式转换 =====
     static createEmptyBoard(size) {
         return Array.from({ length: size }, () => Array(size).fill(0));
     }
@@ -191,25 +191,6 @@ export class BoardManager {
     }
 
     // ===== 棋盘操作（纯函数，返回新数据，不修改原数据） =====
-    // 支持两种棋盘格式：
-    //   - 数字数组：[[1,2,3],[4,5,6],...]（出题编辑模式）
-    //   - 对象数组：[[{value,editable,...}],...]（解题/游戏模式）
-    // 通过 options.isNumberBoard 区分
-    // 所有方法都是纯函数：接收数据 → 处理 → 返回新数据，不修改任何传入的数据
-
-    /**
-     * 操作格子（纯函数）
-     * @param {Array} board - 棋盘数据
-     * @param {number} row - 行
-     * @param {number} col - 列
-     * @param {number} num - 要填入的数字（0 表示清除）
-     * @param {Object} options - 选项
-     * @param {boolean} options.isNumberBoard - 是否为数字数组
-     * @param {number} options.boxSize - 宫格大小
-     * @param {number} options.size - 棋盘大小
-     * @param {Object} [options.history] - 历史记录
-     * @returns {Object|null} 新棋盘数据
-     */
     static operateCell(board, row, col, num, options = {}) {
         const { isNumberBoard, boxSize, size, history } = options;
 
@@ -308,7 +289,7 @@ export class BoardManager {
         return { newGame, newHistoryMap: result.historyMap, newStepPointer: result.stepPointer };
     }
 
-    // ===== 其他棋盘方法 =====
+    // ===== 历史记录 =====
     static navigateHistory(board, historyMap, targetStep, boxSize, size) {
         if (!historyMap[targetStep]) return null;
         const newBoard = board.map(row => row.map(cell => ({ ...cell })));
@@ -320,10 +301,7 @@ export class BoardManager {
         return SudokuGameHelper.saveState(historyMap, stepPointer, board);
     }
 
-    static checkComplete(board, size) {
-        return SudokuGridHelper.checkComplete(board, size);
-    }
-
+    // ===== 棋盘判断 =====
     static hasNumber(board) {
         if (!board || !board.length) return false;
         return board.some(row => row.some(cell => cell > 0));
@@ -332,10 +310,6 @@ export class BoardManager {
     static isBoardComplete(board) {
         if (!board || !board.length) return false;
         return board.every(row => row.every(cell => cell.value > 0 && !cell.conflict));
-    }
-
-    static updateConflicts(board, row, col, boxSize, size) {
-        return SudokuGridHelper.updateConflictsLocal(board, row, col, boxSize, size);
     }
 
     static getHint(board, row, col, boxSize, size) {
