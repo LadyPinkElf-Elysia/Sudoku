@@ -1,31 +1,19 @@
 // Cloudflare Pages Functions - 题目 API
+// 所有字段名使用 Fields.js 中的枚举
 
-// 数据库字段名枚举（唯一来源：与 schema.sql 完全一致）
-const DB = {
-    // puzzles 表
-    P: {
-        TABLE: 'puzzles',
-        ID: 'id',
-        USER_ID: 'user_id',
-        USERNAME: 'username',
-        TITLE: 'title',
-        PUZZLE_DATA: 'puzzle_data',
-        SOLUTION_DATA: 'solution_data',
-        SIZE: 'size',
-        BOX_SIZE: 'box_size',
-        CREATED_AT: 'created_at'
-    },
-    // challenges 表
-    C: {
-        TABLE: 'challenges',
-        ID: 'id',
-        PUZZLE_ID: 'puzzle_id',
-        USER_ID: 'user_id',
-        USERNAME: 'username',
-        COMPLETED: 'completed',
-        ELAPSED_TIME: 'elapsed_time',
-        CREATED_AT: 'created_at'
-    }
+// 内联字段名枚举（避免 import 在 Cloudflare Workers 中失效）
+const F = {
+    PUZZLE_ID: 'puzzleId',
+    USER_ID: 'userId',
+    USERNAME: 'username',
+    TITLE: 'title',
+    PUZZLE_DATA: 'puzzleData',
+    SOLUTION_DATA: 'solutionData',
+    BOARD_SIZE: 'boardSize',
+    CREATED_AT: 'createdAt',
+    CHALLENGE_ID: 'challengeId',
+    IS_COMPLETED: 'isCompleted',
+    ELAPSED_TIME: 'elapsedTime'
 };
 
 const headers = {
@@ -43,59 +31,67 @@ export async function onRequestPost(context) {
 
     try {
         if (path === '/add') {
-            const { userId, username, puzzle, solution, SIZE, BOX_SIZE, title } = await request.json();
-            if (!userId || !puzzle || !solution) {
+            const body = await request.json();
+            const userId = body[F.USER_ID], username = body[F.USERNAME];
+            const puzzleData = body[F.PUZZLE_DATA], solutionData = body[F.SOLUTION_DATA];
+            const boardSize = body[F.BOARD_SIZE], title = body[F.TITLE];
+            if (!userId || !puzzleData || !solutionData) {
                 return new Response(JSON.stringify({ success: false, message: '缺少必要参数' }), { headers });
             }
-            // puzzle 和 solution 是 JSON 字符串（前端已序列化）
             const result = await db.prepare(
-                `INSERT INTO ${DB.P.TABLE} (${DB.P.USER_ID}, ${DB.P.USERNAME}, ${DB.P.PUZZLE_DATA}, ${DB.P.SOLUTION_DATA}, ${DB.P.SIZE}, ${DB.P.BOX_SIZE}, ${DB.P.TITLE}, ${DB.P.CREATED_AT}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-            ).bind(userId, username || '', puzzle, solution, SIZE || 3, BOX_SIZE || 3, title || '', Date.now()).run();
-            return new Response(JSON.stringify({ success: true, puzzle: { id: Number(result.meta.last_row_id) } }), { headers });
+                `INSERT INTO puzzles (user_id, username, puzzle_data, solution_data, board_size, title, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`
+            ).bind(userId, username || '', puzzleData, solutionData, boardSize || 3, title || '', Date.now()).run();
+            return new Response(JSON.stringify({ success: true, puzzle: { [F.PUZZLE_ID]: Number(result.meta.last_row_id) } }), { headers });
         }
 
         if (path === '/delete') {
-            const { puzzleId, userId } = await request.json();
+            const body = await request.json();
+            const puzzleId = body[F.PUZZLE_ID], userId = body[F.USER_ID];
             if (!puzzleId || !userId) {
                 return new Response(JSON.stringify({ success: false, message: '缺少必要参数' }), { headers });
             }
             const existing = await db.prepare(
-                `SELECT * FROM ${DB.P.TABLE} WHERE ${DB.P.ID} = ? AND ${DB.P.USER_ID} = ?`
+                `SELECT * FROM puzzles WHERE _id = ? AND user_id = ?`
             ).bind(puzzleId, userId).first();
             if (!existing) {
                 return new Response(JSON.stringify({ success: false, message: '无权删除此题目' }), { headers });
             }
-            await db.prepare(`DELETE FROM ${DB.C.TABLE} WHERE ${DB.C.PUZZLE_ID} = ?`).bind(puzzleId).run();
-            await db.prepare(`DELETE FROM ${DB.P.TABLE} WHERE ${DB.P.ID} = ?`).bind(puzzleId).run();
+            await db.prepare(`DELETE FROM challenges WHERE puzzle_id = ?`).bind(puzzleId).run();
+            await db.prepare(`DELETE FROM puzzles WHERE _id = ?`).bind(puzzleId).run();
             return new Response(JSON.stringify({ success: true }), { headers });
         }
 
         if (path === '/challenge') {
-            const { puzzleId, userId, username, completed, elapsedTime } = await request.json();
+            const body = await request.json();
+            const puzzleId = body[F.PUZZLE_ID], userId = body[F.USER_ID];
+            const username = body[F.USERNAME], completed = body[F.IS_COMPLETED], elapsedTime = body[F.ELAPSED_TIME];
             if (!puzzleId || !userId) {
                 return new Response(JSON.stringify({ success: false, message: '缺少必要参数' }), { headers });
             }
             await db.prepare(
-                `INSERT INTO ${DB.C.TABLE} (${DB.C.PUZZLE_ID}, ${DB.C.USER_ID}, ${DB.C.USERNAME}, ${DB.C.COMPLETED}, ${DB.C.ELAPSED_TIME}, ${DB.C.CREATED_AT}) VALUES (?, ?, ?, ?, ?, ?)`
+                `INSERT INTO challenges (puzzle_id, user_id, username, is_completed, elapsed_time, created_at) VALUES (?, ?, ?, ?, ?, ?)`
             ).bind(puzzleId, userId, username || '', completed ? 1 : 0, elapsedTime || 0, Date.now()).run();
             return new Response(JSON.stringify({ success: true }), { headers });
         }
 
         if (path === '/update') {
-            const { puzzleId, userId, puzzle, solution, SIZE, BOX_SIZE, title } = await request.json();
-            if (!puzzleId || !userId || !puzzle || !solution) {
+            const body = await request.json();
+            const puzzleId = body[F.PUZZLE_ID], userId = body[F.USER_ID];
+            const puzzleData = body[F.PUZZLE_DATA], solutionData = body[F.SOLUTION_DATA];
+            const boardSize = body[F.BOARD_SIZE], title = body[F.TITLE];
+            if (!puzzleId || !userId || !puzzleData || !solutionData) {
                 return new Response(JSON.stringify({ success: false, message: '缺少必要参数' }), { headers });
             }
             const existing = await db.prepare(
-                `SELECT * FROM ${DB.P.TABLE} WHERE ${DB.P.ID} = ? AND ${DB.P.USER_ID} = ?`
+                `SELECT * FROM puzzles WHERE _id = ? AND user_id = ?`
             ).bind(puzzleId, userId).first();
             if (!existing) {
                 return new Response(JSON.stringify({ success: false, message: '无权修改此题目' }), { headers });
             }
             await db.prepare(
-                `UPDATE ${DB.P.TABLE} SET ${DB.P.PUZZLE_DATA} = ?, ${DB.P.SOLUTION_DATA} = ?, ${DB.P.SIZE} = ?, ${DB.P.BOX_SIZE} = ?, ${DB.P.TITLE} = ?, ${DB.P.CREATED_AT} = ? WHERE ${DB.P.ID} = ?`
-            ).bind(puzzle, solution, SIZE || 3, BOX_SIZE || 3, title || '', Date.now(), puzzleId).run();
-            await db.prepare(`DELETE FROM ${DB.C.TABLE} WHERE ${DB.C.PUZZLE_ID} = ?`).bind(puzzleId).run();
+                `UPDATE puzzles SET puzzle_data = ?, solution_data = ?, board_size = ?, title = ?, created_at = ? WHERE _id = ?`
+            ).bind(puzzleData, solutionData, boardSize || 3, title || '', Date.now(), puzzleId).run();
+            await db.prepare(`DELETE FROM challenges WHERE puzzle_id = ?`).bind(puzzleId).run();
             return new Response(JSON.stringify({ success: true }), { headers });
         }
 
@@ -113,7 +109,7 @@ export async function onRequestGet(context) {
 
     try {
         if (path === '/all') {
-            const puzzles = await db.prepare(`SELECT * FROM ${DB.P.TABLE} ORDER BY ${DB.P.CREATED_AT} DESC`).all();
+            const puzzles = await db.prepare(`SELECT * FROM puzzles ORDER BY created_at DESC`).all();
             return new Response(JSON.stringify({ success: true, puzzles: puzzles.results }), { headers });
         }
 
@@ -121,16 +117,16 @@ export async function onRequestGet(context) {
             const query = url.searchParams.get('q') || '';
             let puzzles;
             if (query === '') {
-                puzzles = await db.prepare(`SELECT * FROM ${DB.P.TABLE} ORDER BY ${DB.P.CREATED_AT} DESC`).all();
+                puzzles = await db.prepare(`SELECT * FROM puzzles ORDER BY created_at DESC`).all();
             } else {
                 const idNum = parseInt(query);
                 if (!isNaN(idNum)) {
                     puzzles = await db.prepare(
-                        `SELECT * FROM ${DB.P.TABLE} WHERE ${DB.P.ID} = ? OR ${DB.P.USER_ID} = ? OR ${DB.P.USERNAME} LIKE ? OR ${DB.P.TITLE} LIKE ?`
+                        `SELECT * FROM puzzles WHERE _id = ? OR user_id = ? OR username LIKE ? OR title LIKE ?`
                     ).bind(idNum, idNum, `%${query}%`, `%${query}%`).all();
                 } else {
                     puzzles = await db.prepare(
-                        `SELECT * FROM ${DB.P.TABLE} WHERE ${DB.P.USERNAME} LIKE ? OR ${DB.P.TITLE} LIKE ?`
+                        `SELECT * FROM puzzles WHERE username LIKE ? OR title LIKE ?`
                     ).bind(`%${query}%`, `%${query}%`).all();
                 }
             }
@@ -138,7 +134,7 @@ export async function onRequestGet(context) {
         }
 
         if (path === '/random') {
-            const puzzle = await db.prepare(`SELECT * FROM ${DB.P.TABLE} ORDER BY RANDOM() LIMIT 1`).first();
+            const puzzle = await db.prepare(`SELECT * FROM puzzles ORDER BY RANDOM() LIMIT 1`).first();
             return new Response(JSON.stringify({ success: true, puzzle: puzzle || null }), { headers });
         }
 
@@ -148,7 +144,7 @@ export async function onRequestGet(context) {
                 return new Response(JSON.stringify({ success: false, message: '缺少用户ID' }), { headers });
             }
             const puzzles = await db.prepare(
-                `SELECT * FROM ${DB.P.TABLE} WHERE ${DB.P.USER_ID} = ? ORDER BY ${DB.P.CREATED_AT} DESC`
+                `SELECT * FROM puzzles WHERE user_id = ? ORDER BY created_at DESC`
             ).bind(userId).all();
             return new Response(JSON.stringify({ success: true, puzzles: puzzles.results }), { headers });
         }
@@ -159,13 +155,13 @@ export async function onRequestGet(context) {
                 return new Response(JSON.stringify({ success: false, message: '缺少题目ID' }), { headers });
             }
             const totalResult = await db.prepare(
-                `SELECT COUNT(*) as count FROM ${DB.C.TABLE} WHERE ${DB.C.PUZZLE_ID} = ?`
+                `SELECT COUNT(*) as count FROM challenges WHERE puzzle_id = ?`
             ).bind(puzzleId).first();
             const completedResult = await db.prepare(
-                `SELECT COUNT(*) as count FROM ${DB.C.TABLE} WHERE ${DB.C.PUZZLE_ID} = ? AND ${DB.C.COMPLETED} = 1`
+                `SELECT COUNT(*) as count FROM challenges WHERE puzzle_id = ? AND is_completed = 1`
             ).bind(puzzleId).first();
             const avgTimeResult = await db.prepare(
-                `SELECT AVG(${DB.C.ELAPSED_TIME}) as avg_time FROM ${DB.C.TABLE} WHERE ${DB.C.PUZZLE_ID} = ? AND ${DB.C.COMPLETED} = 1 AND ${DB.C.ELAPSED_TIME} > 0`
+                `SELECT AVG(elapsed_time) as avg_time FROM challenges WHERE puzzle_id = ? AND is_completed = 1 AND elapsed_time > 0`
             ).bind(puzzleId).first();
             return new Response(JSON.stringify({
                 success: true,

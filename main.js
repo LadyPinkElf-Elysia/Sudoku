@@ -2,6 +2,7 @@
 const { createApp } = Vue;
 import { Pages, FormatUtils } from './util/FormatUtils.js';
 import { BoardManager } from './util/BoardManager.js';
+import { F } from './util/Fields.js';
 import { PuzzleStorage, UserSystem } from './api.js';
 import { LoginComponent } from './components/LoginComponent.js';
 import { MainMenuComponent } from './components/MainMenuComponent.js';
@@ -153,8 +154,8 @@ const app = createApp({
                 this.puzzleBoxSize = Math.round(Math.sqrt(parsed.length));
                 this.puzzleTitle = puzzle.title || '';
                 this.createBoard = parsed.map(row => [...row]);
-                this.submittedPuzzleId = puzzle.id;
-                PuzzleStorage.getStats(puzzle.id).then(s => this.createStats = this._formatStats(s));
+                this.submittedPuzzleId = puzzle[F.PUZZLE_ID];
+                PuzzleStorage.getStats(puzzle[F.PUZZLE_ID]).then(s => this.createStats = this._formatStats(s));
             }
             this.goToPage(Pages.CREATE_PUZZLE);
         },
@@ -220,7 +221,7 @@ const app = createApp({
                 : PuzzleStorage.add(this.currentUser.id, this.currentUser.username, puzzle, solution, this.createSize, this.createBoxSize, title);
             const saveResult = await saveFn;
             if (saveResult.success) {
-                if (saveResult.puzzle) this.submittedPuzzleId = saveResult.puzzle.id;
+                if (saveResult.puzzle) this.submittedPuzzleId = saveResult.puzzle[F.PUZZLE_ID];
                 this.createSubmitted = true;
                 this.createMessage = 'success';
             } else {
@@ -248,10 +249,10 @@ const app = createApp({
             const validPuzzles = [];
             for (const puzzle of puzzles) {
                 if (!this._isValidPuzzle(puzzle)) {
-                    await PuzzleStorage.delete(puzzle.id, puzzle.user_id || puzzle.userId);
+                    await PuzzleStorage.delete(puzzle[F.PUZZLE_ID], puzzle[F.USER_ID]);
                     continue;
                 }
-                const stats = await PuzzleStorage.getStats(puzzle.id);
+                const stats = await PuzzleStorage.getStats(puzzle[F.PUZZLE_ID]);
                 puzzle.stats = this._formatStats(stats);
                 validPuzzles.push(puzzle);
             }
@@ -267,7 +268,7 @@ const app = createApp({
             this.myPuzzlesLoading = false;
         },
         async onDeletePuzzle(puzzle) {
-            const result = await PuzzleStorage.delete(puzzle.id, this.currentUser.id);
+            const result = await PuzzleStorage.delete(puzzle[F.PUZZLE_ID], this.currentUser.id);
             if (result.success) {
                 this.myPuzzlesMessage = '题目已成功删除';
                 await this._loadMyPuzzles();

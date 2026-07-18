@@ -1,36 +1,7 @@
 // api.js - API 封装（合并 PuzzleStorage + UserSystem）
-// 接口约定：所有 API 请求和返回都使用此文件定义的格式
+// 接口约定：所有字段名使用 Fields.js 中的枚举
 
-// ===== 接口约定 =====
-// 请求体字段名（与后端 functions 完全一致）
-export const REQ = {
-    USERNAME: 'username',
-    PASSWORD: 'password',
-    USER_ID: 'userId',
-    PUZZLE: 'puzzle',
-    SOLUTION: 'solution',
-    SIZE: 'SIZE',
-    BOX_SIZE: 'BOX_SIZE',
-    TITLE: 'title',
-    PUZZLE_ID: 'puzzleId',
-    COMPLETED: 'completed',
-    ELAPSED_TIME: 'elapsedTime'
-};
-
-// 返回的题目数据格式（前后端统一）
-export function normalizePuzzle(puzzle) {
-    if (!puzzle) return null;
-    return {
-        id: puzzle.id,
-        title: puzzle.title || '',
-        size: puzzle.size || 9,
-        user_id: puzzle.user_id,
-        username: puzzle.username || '',
-        puzzle_data: puzzle.puzzle_data,
-        created_at: puzzle.created_at,
-        stats: puzzle.stats || null
-    };
-}
+import { F } from './util/Fields.js';
 
 // ===== 用户系统 =====
 export class UserSystem {
@@ -39,7 +10,7 @@ export class UserSystem {
             const res = await fetch('/api/users/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ [REQ.USERNAME]: username, [REQ.PASSWORD]: password })
+                body: JSON.stringify({ [F.USERNAME]: username, [F.USER_PASSWORD]: password })
             });
             return await res.json();
         } catch (e) {
@@ -52,7 +23,7 @@ export class UserSystem {
             const res = await fetch('/api/users/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ [REQ.USERNAME]: username, [REQ.PASSWORD]: password })
+                body: JSON.stringify({ [F.USERNAME]: username, [F.USER_PASSWORD]: password })
             });
             return await res.json();
         } catch (e) {
@@ -83,19 +54,33 @@ export class UserSystem {
 
 // ===== 题目存储 =====
 export class PuzzleStorage {
-    static async add(userId, username, puzzle, solution, SIZE, BOX_SIZE, title) {
+    // 统一返回格式
+    static _normalize(puzzle) {
+        if (!puzzle) return null;
+        return {
+            [F.PUZZLE_ID]: puzzle[F.PUZZLE_ID] || puzzle._id,
+            [F.TITLE]: puzzle[F.TITLE] || '',
+            [F.BOARD_SIZE]: puzzle[F.BOARD_SIZE] || puzzle.board_size || 3,
+            [F.USER_ID]: puzzle[F.USER_ID] || puzzle.user_id,
+            [F.USERNAME]: puzzle[F.USERNAME] || '',
+            [F.PUZZLE_DATA]: puzzle[F.PUZZLE_DATA] || puzzle.puzzle_data,
+            [F.CREATED_AT]: puzzle[F.CREATED_AT] || puzzle.created_at,
+            stats: puzzle.stats || null
+        };
+    }
+
+    static async add(userId, username, puzzle, solution, boardSize, title) {
         try {
             const res = await fetch('/api/puzzles/add', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    [REQ.USER_ID]: userId,
-                    [REQ.USERNAME]: username,
-                    [REQ.PUZZLE]: JSON.stringify(puzzle),
-                    [REQ.SOLUTION]: JSON.stringify(solution),
-                    [REQ.SIZE]: SIZE,
-                    [REQ.BOX_SIZE]: BOX_SIZE,
-                    [REQ.TITLE]: title || ''
+                    [F.USER_ID]: userId,
+                    [F.USERNAME]: username,
+                    [F.PUZZLE_DATA]: JSON.stringify(puzzle),
+                    [F.SOLUTION_DATA]: JSON.stringify(solution),
+                    [F.BOARD_SIZE]: boardSize,
+                    [F.TITLE]: title || ''
                 })
             });
             return await res.json();
@@ -108,7 +93,7 @@ export class PuzzleStorage {
         try {
             const res = await fetch('/api/puzzles/all');
             const data = await res.json();
-            return (data.puzzles || []).map(normalizePuzzle);
+            return (data.puzzles || []).map(PuzzleStorage._normalize);
         } catch (e) {
             return [];
         }
@@ -118,7 +103,7 @@ export class PuzzleStorage {
         try {
             const res = await fetch('/api/puzzles/random');
             const data = await res.json();
-            return normalizePuzzle(data.puzzle || null);
+            return PuzzleStorage._normalize(data.puzzle || null);
         } catch (e) {
             return null;
         }
@@ -128,7 +113,7 @@ export class PuzzleStorage {
         try {
             const res = await fetch(`/api/puzzles/search?q=${encodeURIComponent(query)}`);
             const data = await res.json();
-            return (data.puzzles || []).map(normalizePuzzle);
+            return (data.puzzles || []).map(PuzzleStorage._normalize);
         } catch (e) {
             return [];
         }
@@ -140,11 +125,11 @@ export class PuzzleStorage {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    [REQ.PUZZLE_ID]: puzzleId,
-                    [REQ.USER_ID]: userId,
-                    [REQ.USERNAME]: username,
-                    [REQ.COMPLETED]: completed,
-                    [REQ.ELAPSED_TIME]: elapsedTime || 0
+                    [F.PUZZLE_ID]: puzzleId,
+                    [F.USER_ID]: userId,
+                    [F.USERNAME]: username,
+                    [F.IS_COMPLETED]: completed,
+                    [F.ELAPSED_TIME]: elapsedTime || 0
                 })
             });
             return await res.json();
@@ -167,7 +152,7 @@ export class PuzzleStorage {
         try {
             const res = await fetch(`/api/puzzles/byuser?userId=${userId}`);
             const data = await res.json();
-            return (data.puzzles || []).map(normalizePuzzle);
+            return (data.puzzles || []).map(PuzzleStorage._normalize);
         } catch (e) {
             return [];
         }
@@ -178,7 +163,7 @@ export class PuzzleStorage {
             const res = await fetch('/api/puzzles/delete', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ [REQ.PUZZLE_ID]: puzzleId, [REQ.USER_ID]: userId })
+                body: JSON.stringify({ [F.PUZZLE_ID]: puzzleId, [F.USER_ID]: userId })
             });
             return await res.json();
         } catch (e) {
@@ -186,19 +171,18 @@ export class PuzzleStorage {
         }
     }
 
-    static async update(puzzleId, userId, puzzle, solution, SIZE, BOX_SIZE, title) {
+    static async update(puzzleId, userId, puzzle, solution, boardSize, title) {
         try {
             const res = await fetch('/api/puzzles/update', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    [REQ.PUZZLE_ID]: puzzleId,
-                    [REQ.USER_ID]: userId,
-                    [REQ.PUZZLE]: JSON.stringify(puzzle),
-                    [REQ.SOLUTION]: JSON.stringify(solution),
-                    [REQ.SIZE]: SIZE,
-                    [REQ.BOX_SIZE]: BOX_SIZE,
-                    [REQ.TITLE]: title || ''
+                    [F.PUZZLE_ID]: puzzleId,
+                    [F.USER_ID]: userId,
+                    [F.PUZZLE_DATA]: JSON.stringify(puzzle),
+                    [F.SOLUTION_DATA]: JSON.stringify(solution),
+                    [F.BOARD_SIZE]: boardSize,
+                    [F.TITLE]: title || ''
                 })
             });
             return await res.json();

@@ -15,20 +15,20 @@ export const SearchPuzzlesComponent = {
             <div v-if="displayMessage" class="auth-message" :class="{ success: displayMessage.includes('道题目') }">{{ displayMessage }}</div>
             
             <div v-if="searchResults.length > 0" class="card-list">
-                    <div v-for="puzzle in searchResults" :key="puzzle.id" class="puzzle-card">
+                    <div v-for="puzzle in searchResults" :key="puzzle.puzzleId" class="puzzle-card">
                         <div class="card-header">
-                            <span class="puzzle-id">#{{ puzzle.id }}</span>
-                            <span class="puzzle-size">{{ puzzle.size || puzzle.SIZE }}×{{ puzzle.size || puzzle.SIZE }}</span>
+                            <span class="puzzle-id">#{{ puzzle.puzzleId }}</span>
+                            <span class="puzzle-size">{{ puzzle.boardSize }}×{{ puzzle.boardSize }}</span>
                         </div>
                         <div class="card-title">{{ puzzle.title }}</div>
-                        <div class="card-author" @click.stop="$emit('view-user-puzzles', puzzle.user_id || puzzle.userId)">👤 {{ puzzle.username }} (ID: {{ puzzle.user_id || puzzle.userId }})</div>
+                        <div class="card-author" @click.stop="$emit('view-user-puzzles', puzzle.userId)">👤 {{ puzzle.username }} (ID: {{ puzzle.userId }})</div>
                         <div class="card-stats" v-if="puzzle.stats">
                             <span>👥 {{ puzzle.stats.totalChallenges }}</span>
                             <span>✅ {{ puzzle.stats.completedChallenges }}</span>
                             <span>📊 {{ puzzle.stats.passRate }}</span>
                             <span v-if="puzzle.stats.avgTime > 0">⏱️ {{ puzzle.stats.avgTimeFormatted }}</span>
                         </div>
-                        <div class="card-date">{{ new Date(puzzle.created_at || puzzle.createdAt).toLocaleDateString() }}</div>
+                        <div class="card-date">{{ new Date(puzzle.createdAt).toLocaleDateString() }}</div>
                         <div class="card-actions">
                             <button class="btn btn-primary btn-sm" @click="startPuzzle(puzzle)">🚀 挑战</button>
                         </div>

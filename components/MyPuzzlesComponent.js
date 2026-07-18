@@ -18,13 +18,13 @@ export const MyPuzzlesComponent = {
             </div>
 
             <div v-if="puzzles.length > 0" class="card-list">
-                <div v-for="puzzle in puzzles" :key="puzzle.id" class="my-puzzle-card">
+                <div v-for="puzzle in puzzles" :key="puzzle.puzzleId" class="my-puzzle-card">
                     <div class="card-header">
-                        <span class="puzzle-id">#{{ puzzle.id }}</span>
-                        <span class="puzzle-size">{{ puzzle.size || puzzle.SIZE }}×{{ puzzle.size || puzzle.SIZE }}</span>
+                        <span class="puzzle-id">#{{ puzzle.puzzleId }}</span>
+                        <span class="puzzle-size">{{ puzzle.boardSize }}×{{ puzzle.boardSize }}</span>
                     </div>
                     <div class="card-title">{{ puzzle.title || '无标题' }}</div>
-                    <div class="card-date">{{ new Date(puzzle.created_at || puzzle.createdAt).toLocaleDateString() }}</div>
+                    <div class="card-date">{{ new Date(puzzle.createdAt).toLocaleDateString() }}</div>
                     
                     <!-- 统计数据 -->
                     <div class="card-stats" v-if="puzzle.stats">
@@ -55,7 +55,7 @@ export const MyPuzzlesComponent = {
     },
     methods: {
         deletePuzzle(puzzle) {
-            if (confirm(`确定要删除题目 #${puzzle.id} 吗？此操作不可撤销。`)) {
+            if (confirm(`确定要删除题目 #${puzzle.puzzleId} 吗？此操作不可撤销。`)) {
                 this.$emit('delete-puzzle', puzzle);
             }
         }
