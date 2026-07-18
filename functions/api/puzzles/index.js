@@ -47,10 +47,27 @@ export async function onRequestPost(context) {
             if (!userId || !puzzle || !solution) {
                 return new Response(JSON.stringify({ success: false, message: '缺少必要参数' }), { headers });
             }
+            // puzzle 和 solution 是 JSON 字符串（前端已序列化）
             const result = await db.prepare(
                 `INSERT INTO ${DB.P.TABLE} (${DB.P.USER_ID}, ${DB.P.USERNAME}, ${DB.P.PUZZLE_DATA}, ${DB.P.SOLUTION_DATA}, ${DB.P.SIZE}, ${DB.P.BOX_SIZE}, ${DB.P.TITLE}, ${DB.P.CREATED_AT}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
             ).bind(userId, username || '', puzzle, solution, SIZE || 3, BOX_SIZE || 3, title || '', Date.now()).run();
             return new Response(JSON.stringify({ success: true, puzzle: { id: Number(result.meta.last_row_id) } }), { headers });
+        }
+
+        if (path === '/delete') {
+            const { puzzleId, userId } = await request.json();
+            if (!puzzleId || !userId) {
+                return new Response(JSON.stringify({ success: false, message: '缺少必要参数' }), { headers });
+            }
+            const existing = await db.prepare(
+                `SELECT * FROM ${DB.P.TABLE} WHERE ${DB.P.ID} = ? AND ${DB.P.USER_ID} = ?`
+            ).bind(puzzleId, userId).first();
+            if (!existing) {
+                return new Response(JSON.stringify({ success: false, message: '无权删除此题目' }), { headers });
+            }
+            await db.prepare(`DELETE FROM ${DB.C.TABLE} WHERE ${DB.C.PUZZLE_ID} = ?`).bind(puzzleId).run();
+            await db.prepare(`DELETE FROM ${DB.P.TABLE} WHERE ${DB.P.ID} = ?`).bind(puzzleId).run();
+            return new Response(JSON.stringify({ success: true }), { headers });
         }
 
         if (path === '/challenge') {

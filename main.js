@@ -231,8 +231,8 @@ const app = createApp({
 
         // ===== 搜索题目 =====
         async onSearch() {
-            this.searchResults = await PuzzleStorage.search(this.searchQuery);
-            await this._loadPuzzleStats(this.searchResults);
+            const puzzles = await PuzzleStorage.search(this.searchQuery);
+            this.searchResults = await this._loadPuzzleStats(puzzles);
         },
         _isValidPuzzle(puzzle) {
             const str = puzzle.puzzle_data || puzzle.puzzle;

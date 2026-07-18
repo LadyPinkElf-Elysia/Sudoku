@@ -1,6 +1,8 @@
 // api.js - API 封装（合并 PuzzleStorage + UserSystem）
+// 接口约定：所有 API 请求和返回都使用此文件定义的格式
 
-// 请求体字段名枚举（与后端解构变量名完全一致）
+// ===== 接口约定 =====
+// 请求体字段名（与后端 functions 完全一致）
 export const REQ = {
     USERNAME: 'username',
     PASSWORD: 'password',
@@ -15,6 +17,21 @@ export const REQ = {
     ELAPSED_TIME: 'elapsedTime'
 };
 
+// 返回的题目数据格式（前后端统一）
+export function normalizePuzzle(puzzle) {
+    if (!puzzle) return null;
+    return {
+        id: puzzle.id,
+        title: puzzle.title || '',
+        size: puzzle.size || 9,
+        user_id: puzzle.user_id,
+        username: puzzle.username || '',
+        puzzle_data: puzzle.puzzle_data,
+        created_at: puzzle.created_at,
+        stats: puzzle.stats || null
+    };
+}
+
 // ===== 用户系统 =====
 export class UserSystem {
     static async register(username, password) {
@@ -26,7 +43,6 @@ export class UserSystem {
             });
             return await res.json();
         } catch (e) {
-            console.error('注册失败:', e);
             return { success: false, message: '网络错误，请重试' };
         }
     }
@@ -40,7 +56,6 @@ export class UserSystem {
             });
             return await res.json();
         } catch (e) {
-            console.error('登录失败:', e);
             return { success: false, message: '网络错误，请重试' };
         }
     }
@@ -51,7 +66,6 @@ export class UserSystem {
             const data = await res.json();
             return data.users || [];
         } catch (e) {
-            console.error('搜索用户失败:', e);
             return [];
         }
     }
@@ -62,7 +76,6 @@ export class UserSystem {
             const data = await res.json();
             return data.users?.[0] || null;
         } catch (e) {
-            console.error('获取用户信息失败:', e);
             return null;
         }
     }
@@ -87,7 +100,6 @@ export class PuzzleStorage {
             });
             return await res.json();
         } catch (e) {
-            console.error('保存题目失败:', e);
             return { success: false, message: '网络错误，请重试' };
         }
     }
@@ -96,9 +108,8 @@ export class PuzzleStorage {
         try {
             const res = await fetch('/api/puzzles/all');
             const data = await res.json();
-            return data.puzzles || [];
+            return (data.puzzles || []).map(normalizePuzzle);
         } catch (e) {
-            console.error('获取题目列表失败:', e);
             return [];
         }
     }
@@ -107,9 +118,8 @@ export class PuzzleStorage {
         try {
             const res = await fetch('/api/puzzles/random');
             const data = await res.json();
-            return data.puzzle || null;
+            return normalizePuzzle(data.puzzle || null);
         } catch (e) {
-            console.error('获取随机题目失败:', e);
             return null;
         }
     }
@@ -118,9 +128,8 @@ export class PuzzleStorage {
         try {
             const res = await fetch(`/api/puzzles/search?q=${encodeURIComponent(query)}`);
             const data = await res.json();
-            return data.puzzles || [];
+            return (data.puzzles || []).map(normalizePuzzle);
         } catch (e) {
-            console.error('搜索题目失败:', e);
             return [];
         }
     }
@@ -140,7 +149,6 @@ export class PuzzleStorage {
             });
             return await res.json();
         } catch (e) {
-            console.error('记录挑战失败:', e);
             return { success: false };
         }
     }
@@ -151,7 +159,6 @@ export class PuzzleStorage {
             const data = await res.json();
             return data.stats || { totalChallenges: 0, completedChallenges: 0 };
         } catch (e) {
-            console.error('获取统计失败:', e);
             return { totalChallenges: 0, completedChallenges: 0 };
         }
     }
@@ -160,9 +167,8 @@ export class PuzzleStorage {
         try {
             const res = await fetch(`/api/puzzles/byuser?userId=${userId}`);
             const data = await res.json();
-            return data.puzzles || [];
+            return (data.puzzles || []).map(normalizePuzzle);
         } catch (e) {
-            console.error('获取用户题目失败:', e);
             return [];
         }
     }
@@ -176,7 +182,6 @@ export class PuzzleStorage {
             });
             return await res.json();
         } catch (e) {
-            console.error('删除题目失败:', e);
             return { success: false, message: '网络错误，请重试' };
         }
     }
@@ -198,7 +203,6 @@ export class PuzzleStorage {
             });
             return await res.json();
         } catch (e) {
-            console.error('更新题目失败:', e);
             return { success: false, message: '网络错误，请重试' };
         }
     }
