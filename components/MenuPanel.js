@@ -45,7 +45,13 @@ export const MenuPanel = {
     setup() {
         const ctx = inject('ctx')
         function go(page) { ctx.goPage(page) }
-        function create() { ctx.initCreate() }
+        function create() {
+            if (ctx.currentUser.val?.isGuest) {
+                alert('⚠️ 游客模式无法出题，请登录或注册账号后使用此功能')
+                return
+            }
+            ctx.initCreate()
+        }
         function myPuzzles() { ctx.goPage(PAGE.MY_PUZZLES); ctx.loadMyPuzzles() }
         return { ctx, go, create, myPuzzles }
     }
