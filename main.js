@@ -13,7 +13,7 @@ const app = createApp({
     setup() {
         const ctx = useGame()
         provide('ctx', ctx)
-        return {}
+        return { p: ctx.p }
     }
 })
 
