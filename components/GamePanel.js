@@ -1,5 +1,6 @@
 import { inject, ref, watch, onMounted, onBeforeUnmount, computed } from 'vue'
 import { Grid } from '../utils/grid.js'
+import { Generator } from '../utils/generator.js'
 export const GamePanel = {
     template: `
         <div class="game-area">
@@ -35,7 +36,11 @@ export const GamePanel = {
             </div>
             <div v-if="ctx.p.msg.text" class="hint-box">{{ ctx.p.msg.text }}</div>
             <div class="loading-overlay" v-if="ctx.p.status==='generating'">
-                <div class="loading-content"><div class="loading-spinner"></div><div class="loading-text">正在生成...</div></div>
+                <div class="loading-content">
+                    <div class="loading-spinner"></div>
+                    <div class="loading-text">正在生成...</div>
+                    <button class="btn btn-secondary" style="margin-top:16px;color:#fff;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.5);" @click="cancelGen">取消</button>
+                </div>
             </div>
             <div class="victory-overlay" v-if="ctx.p.status==='won'">
                 <div class="victory-dialog"><h3>🎉 恭喜完成！</h3><button class="btn btn-primary" @click="back">返回菜单</button></div>
@@ -79,6 +84,7 @@ export const GamePanel = {
         }
         function input(n) { ctx.inputNum(n); render() }
         function hint() { ctx.giveHint() }
+        function cancelGen() { ctx.startGame = null; Generator.abort(); ctx.p.status = 'idle'; ctx.goPage('menu') }
         function back() { ctx.goPage('menu') }
         function reset() { ctx.goPage('menu') }
         function zoomIn() { zoom.value = Math.min(3, zoom.value + 0.1); render() }
@@ -94,6 +100,6 @@ export const GamePanel = {
             document.removeEventListener('keydown', keyHandler)
         })
 
-        return { ctx, zoom, size, boxSize, sizeLabel, input, undo:()=>{ctx.undo();render()}, redo:()=>{ctx.redo();render()}, hint, back, reset, zoomIn, zoomOut }
+        return { ctx, zoom, size, boxSize, sizeLabel, input, undo:()=>{ctx.undo();render()}, redo:()=>{ctx.redo();render()}, hint, cancelGen, back, reset, zoomIn, zoomOut }
     }
 }
