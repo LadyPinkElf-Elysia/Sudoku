@@ -1,83 +1,243 @@
-// generator.js - 数独生成器（纯函数 + Worker）
+// generator.js - 数独生成器
+// 使用 Web Worker 异步生成，不阻塞 UI
 
-const WORKER_CODE = `function gS(B,S){for(let a=0;a<(S<=9?10:50);a++){const g=Array.from({length:S},()=>Array(S).fill(0));fd(g,B,S);if(sl(g,B,S)&&vl(g,B,S))return g}const g=Array.from({length:S},()=>Array(S).fill(0));for(let b=0;b<S;b+=B+1){const sr=Math.floor(b/B)*B,sc=(b%B)*B;let n=1;for(let r=sr;r<sr+B;r++)for(let c=sc;c<sc+B;c++)g[r][c]=n++}if(sl(g,B,S)&&vl(g,B,S))return g;return Array.from({length:S},()=>Array(S).fill(0))}
-function cP(s,b){const p=s.map(r=>[...r]);const S=p.length,B=Math.sqrt(S);b=Math.max(S,Math.min(S*S-1,b||S));const rm=new Set();for(let i=0;i<S;i++){const sr=Math.floor(i/B)*B,sc=(i%B)*B;const pos=[];for(let r=sr;r<sr+B;r++)for(let c=sc;c<sc+B;c++)pos.push({r,c});sh(pos);p[pos[0].r][pos[0].c]=0;rm.add(pos[0].r+','+pos[0].c)}if(b>S){const rp=[];for(let r=0;r<S;r++)for(let c=0;c<S;c++)if(!rm.has(r+','+c))rp.push({r,c});sh(rp);const t=Math.min(b-S,rp.length);for(let i=0;i<t;i++)p[rp[i].r][rp[i].c]=0}return p}
-self.onmessage=function(e){try{const{B,S,b}=e.data;const s=gS(B,S);const p=cP(s,b);self.postMessage({ok:true,puzzle:p})}catch(error){self.postMessage({ok:false,error:error.message})}};`
-
-let _worker = null
-function getWorker() {
-    if (!_worker) {
-        const blob = new Blob([WORKER_CODE], { type: 'application/javascript' })
-        const url = URL.createObjectURL(blob)
-        _worker = new Worker(url)
-        URL.revokeObjectURL(url)
+const WORKER_CODE = `
+// 洗牌
+function shuffle(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
     }
-    return _worker
 }
-function killWorker() { if (_worker) { _worker.terminate(); _worker = null } }
+
+// 检查数字 n 在 (row, col) 位置是否合法
+function isValid(grid, row, col, num, boxSize, size) {
+    for (let i = 0; i < size; i++) {
+        if (grid[row][i] === num || grid[i][col] === num) return false;
+    }
+    const sr = Math.floor(row / boxSize) * boxSize;
+    const sc = Math.floor(col / boxSize) * boxSize;
+    for (let i = sr; i < sr + boxSize; i++)
+        for (let j = sc; j < sc + boxSize; j++)
+            if (grid[i][j] === num) return false;
+    return true;
+}
+
+// 获取某个位置的所有候选数字
+function getCandidates(grid, row, col, boxSize, size) {
+    if (grid[row][col] !== 0) return [];
+    const result = [];
+    for (let n = 1; n <= size; n++) {
+        if (isValid(grid, row, col, n, boxSize, size)) result.push(n);
+    }
+    return result;
+}
+
+// MRV（最小剩余值）回溯求解
+function solve(grid, boxSize, size) {
+    let minCount = size + 1, bestRow = -1, bestCol = -1, bestCandidates = [];
+    for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+            if (grid[r][c] !== 0) continue;
+            const cand = getCandidates(grid, r, c, boxSize, size);
+            if (cand.length === 0) return false;
+            if (cand.length < minCount) {
+                minCount = cand.length;
+                bestRow = r; bestCol = c;
+                bestCandidates = cand;
+                if (minCount === 1) break;
+            }
+        }
+        if (minCount === 1) break;
+    }
+    if (bestRow === -1) return true;
+    shuffle(bestCandidates);
+    for (const n of bestCandidates) {
+        grid[bestRow][bestCol] = n;
+        if (solve(grid, boxSize, size)) return true;
+        grid[bestRow][bestCol] = 0;
+    }
+    return false;
+}
+
+// 填充对角线上的宫格（每个宫格互不影响，可以直接填）
+function fillDiagonal(grid, boxSize, size) {
+    for (let b = 0; b < size; b += boxSize + 1) {
+        const sr = Math.floor(b / boxSize) * boxSize;
+        const sc = (b % boxSize) * boxSize;
+        const nums = Array.from({ length: size }, (_, i) => i + 1);
+        shuffle(nums);
+        let idx = 0;
+        for (let r = sr; r < sr + boxSize; r++)
+            for (let c = sc; c < sc + boxSize; c++)
+                grid[r][c] = nums[idx++];
+    }
+}
+
+// 生成完整数独解
+function generateSolution(boxSize, size) {
+    const maxAttempts = size <= 9 ? 10 : 50;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const grid = Array.from({ length: size }, () => Array(size).fill(0));
+        fillDiagonal(grid, boxSize, size);
+        if (solve(grid, boxSize, size)) return grid;
+    }
+    // 兜底：用顺序填对角线再求解
+    const grid = Array.from({ length: size }, () => Array(size).fill(0));
+    for (let b = 0; b < size; b += boxSize + 1) {
+        const sr = Math.floor(b / boxSize) * boxSize;
+        const sc = (b % boxSize) * boxSize;
+        let num = 1;
+        for (let r = sr; r < sr + boxSize; r++)
+            for (let c = sc; c < sc + boxSize; c++)
+                grid[r][c] = num++;
+    }
+    solve(grid, boxSize, size);
+    return grid;
+}
+
+// 从完整解中挖空，生成谜题（每个宫格至少挖一个）
+function createPuzzle(solution, blanks) {
+    const puzzle = solution.map(row => [...row]);
+    const size = puzzle.length;
+    const boxSize = Math.sqrt(size);
+    const maxBlanks = Math.max(size, Math.min(size * size - 1, blanks || size));
+    const removed = new Set();
+    
+    // 每个宫格至少挖一个
+    for (let b = 0; b < size; b++) {
+        const sr = Math.floor(b / boxSize) * boxSize;
+        const sc = (b % boxSize) * boxSize;
+        const positions = [];
+        for (let r = sr; r < sr + boxSize; r++)
+            for (let c = sc; c < sc + boxSize; c++)
+                positions.push({ r, c });
+        shuffle(positions);
+        puzzle[positions[0].r][positions[0].c] = 0;
+        removed.add(positions[0].r + ',' + positions[0].c);
+    }
+    // 继续挖空到指定数量
+    if (maxBlanks > size) {
+        const remaining = [];
+        for (let r = 0; r < size; r++)
+            for (let c = 0; c < size; c++)
+                if (!removed.has(r + ',' + c)) remaining.push({ r, c });
+        shuffle(remaining);
+        const toRemove = Math.min(maxBlanks - size, remaining.length);
+        for (let i = 0; i < toRemove; i++)
+            puzzle[remaining[i].r][remaining[i].c] = 0;
+    }
+    return puzzle;
+}
+
+self.onmessage = function(e) {
+    try {
+        const { boxSize, size, blanks } = e.data;
+        const solution = generateSolution(boxSize, size);
+        const puzzle = createPuzzle(solution, blanks);
+        self.postMessage({ success: true, puzzle: puzzle });
+    } catch (error) {
+        self.postMessage({ success: false, error: error.message });
+    }
+};
+`;
+
+let worker = null;
+
+function getWorker() {
+    if (!worker) {
+        const blob = new Blob([WORKER_CODE], { type: 'application/javascript' });
+        const url = URL.createObjectURL(blob);
+        worker = new Worker(url);
+        URL.revokeObjectURL(url);
+    }
+    return worker;
+}
+
+function killWorker() {
+    if (worker) { worker.terminate(); worker = null; }
+}
 
 export const Generator = {
-    generate(B, S, blanks) {
+    generate(boxSize, size, blanks) {
         return new Promise(resolve => {
-            killWorker()
-            const w = getWorker()
-            const t = setTimeout(() => { w.terminate(); _worker = null; resolve(Generator.sync(B, S, blanks)) }, 30000)
-            w.onmessage = e => { clearTimeout(t); resolve(e.data.ok ? e.data.puzzle : Generator.sync(B, S, blanks)) }
-            w.onerror = () => { clearTimeout(t); resolve(Generator.sync(B, S, blanks)) }
-            w.postMessage({ B, S, b: blanks })
-        })
+            killWorker();
+            const w = getWorker();
+            const timeout = setTimeout(() => {
+                w.terminate();
+                worker = null;
+                resolve(Generator.sync(boxSize, size, blanks));
+            }, 30000);
+            w.onmessage = e => {
+                clearTimeout(timeout);
+                resolve(e.data.success ? e.data.puzzle : Generator.sync(boxSize, size, blanks));
+            };
+            w.onerror = () => {
+                clearTimeout(timeout);
+                resolve(Generator.sync(boxSize, size, blanks));
+            };
+            w.postMessage({ boxSize, size, blanks });
+        });
     },
 
-    sync(B, S, blanks) {
-        const grid = Array.from({ length: S }, () => Array(S).fill(0))
-        for (let b = 0; b < S; b += B + 1) {
-            const sr = Math.floor(b / B) * B, sc = (b % B) * B
-            const nums = Array.from({ length: S }, (_, i) => i + 1)
-            for (let i = nums.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [nums[i], nums[j]] = [nums[j], nums[i]] }
-            let idx = 0
-            for (let r = sr; r < sr + B; r++) for (let c = sc; c < sc + B; c++) grid[r][c] = nums[idx++]
-        }
-        // 内联求解
-        ;(function sl(g, B2, S2) {
-            let min = S2 + 1, br = -1, bc = -1, bcand = []
-            for (let r = 0; r < S2; r++) for (let c = 0; c < S2; c++) {
-                if (g[r][c] !== 0) continue
-                const cand = []
-                for (let n = 1; n <= S2; n++) {
-                    let ok = true
-                    for (let i = 0; i < S2 && ok; i++) if (g[r][i] === n || g[i][c] === n) ok = false
-                    const sr2 = Math.floor(r / B2) * B2, sc2 = Math.floor(c / B2) * B2
-                    for (let i = sr2; i < sr2 + B2 && ok; i++) for (let j = sc2; j < sc2 + B2; j++) if (g[i][j] === n) ok = false
-                    if (ok) cand.push(n)
-                }
-                if (cand.length === 0) return false
-                if (cand.length < min) { min = cand.length; br = r; bc = c; bcand = cand; if (min === 1) break }
+    sync(boxSize, size, blanks) {
+        // 直接用内联的求解逻辑（和 Worker 中一致）
+        function shuffle(arr) {
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
             }
-            if (br === -1) return true
-            for (let i = bcand.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [bcand[i], bcand[j]] = [bcand[j], bcand[i]] }
-            for (const n of bcand) { g[br][bc] = n; if (sl(g, B2, S2)) return true; g[br][bc] = 0 }
-            return false
-        })(grid, B, S)
+        }
+        function isValid(grid, row, col, num, B, S) {
+            for (let i = 0; i < S; i++) if (grid[row][i] === num || grid[i][col] === num) return false;
+            const sr = Math.floor(row / B) * B, sc = Math.floor(col / B) * B;
+            for (let i = sr; i < sr + B; i++) for (let j = sc; j < sc + B; j++) if (grid[i][j] === num) return false;
+            return true;
+        }
+        function solve(grid, B, S) {
+            let min = S + 1, br = -1, bc = -1, bcand = [];
+            for (let r = 0; r < S; r++) for (let c = 0; c < S; c++) {
+                if (grid[r][c] !== 0) continue;
+                const cand = [];
+                for (let n = 1; n <= S; n++) if (isValid(grid, r, c, n, B, S)) cand.push(n);
+                if (cand.length === 0) return false;
+                if (cand.length < min) { min = cand.length; br = r; bc = c; bcand = cand; if (min === 1) break; }
+            }
+            if (br === -1) return true;
+            shuffle(bcand);
+            for (const n of bcand) { grid[br][bc] = n; if (solve(grid, B, S)) return true; grid[br][bc] = 0; }
+            return false;
+        }
 
-        const puzzle = grid.map(r => [...r])
-        const b2 = Math.max(S, Math.min(S * S - 1, blanks || S))
-        const rm = new Set()
-        for (let i = 0; i < S; i++) {
-            const sr = Math.floor(i / B) * B, sc = (i % B) * B
-            const pos = []
-            for (let r = sr; r < sr + B; r++) for (let c = sc; c < sc + B; c++) pos.push({ r, c })
-            for (let i2 = pos.length - 1; i2 > 0; i2--) { const j = Math.floor(Math.random() * (i2 + 1)); [pos[i2], pos[j]] = [pos[j], pos[i2]] }
-            puzzle[pos[0].r][pos[0].c] = 0; rm.add(pos[0].r + ',' + pos[0].c)
+        const grid = Array.from({ length: size }, () => Array(size).fill(0));
+        for (let b = 0; b < size; b += boxSize + 1) {
+            const sr = Math.floor(b / boxSize) * boxSize, sc = (b % boxSize) * boxSize;
+            const nums = Array.from({ length: size }, (_, i) => i + 1);
+            shuffle(nums); let idx = 0;
+            for (let r = sr; r < sr + boxSize; r++) for (let c = sc; c < sc + boxSize; c++) grid[r][c] = nums[idx++];
         }
-        if (b2 > S) {
-            const rp = []
-            for (let r = 0; r < S; r++) for (let c = 0; c < S; c++) if (!rm.has(r + ',' + c)) rp.push({ r, c })
-            for (let i2 = rp.length - 1; i2 > 0; i2--) { const j = Math.floor(Math.random() * (i2 + 1)); [rp[i2], rp[j]] = [rp[j], rp[i2]] }
-            const tr = Math.min(b2 - S, rp.length)
-            for (let i = 0; i < tr; i++) puzzle[rp[i].r][rp[i].c] = 0
+        solve(grid, boxSize, size);
+
+        const puzzle = grid.map(r => [...r]);
+        const b2 = Math.max(size, Math.min(size * size - 1, blanks || size));
+        const removed = new Set();
+        for (let b = 0; b < size; b++) {
+            const sr = Math.floor(b / boxSize) * boxSize, sc = (b % boxSize) * boxSize;
+            const pos = [];
+            for (let r = sr; r < sr + boxSize; r++) for (let c = sc; c < sc + boxSize; c++) pos.push({ r, c });
+            shuffle(pos);
+            puzzle[pos[0].r][pos[0].c] = 0;
+            removed.add(pos[0].r + ',' + pos[0].c);
         }
-        return puzzle
+        if (b2 > size) {
+            const remaining = [];
+            for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) if (!removed.has(r + ',' + c)) remaining.push({ r, c });
+            shuffle(remaining);
+            const t = Math.min(b2 - size, remaining.length);
+            for (let i = 0; i < t; i++) puzzle[remaining[i].r][remaining[i].c] = 0;
+        }
+        return puzzle;
     },
 
-    abort() { killWorker() },
-}
+    abort() { killWorker(); },
+};

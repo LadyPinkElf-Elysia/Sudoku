@@ -2,7 +2,7 @@
 // 第一层：scan / dup / clone
 // 第二层：scanRow / scanCol / scanBox / rowDup / colDup / boxDup / cand
 // 第三层：conflict / done / solve / cell / fromPuzzle / toNum / empty
-// UI层：render / clickPos / keyDown
+// UI层：setupCanvas / drawCell / drawLines / render
 
 export const Grid = {
 
@@ -108,49 +108,108 @@ export const Grid = {
 
     // ===== UI层 =====
 
-    render(id, board, size, boxSize, sr, sc, zoom = 1.0) {
+    // 基本步骤1：设置画布，返回 { ctx, cellSize }
+    setupCanvas(id, size, zoom) {
         const canvas = document.getElementById(id)
-        if (!canvas || !board?.length) return
+        if (!canvas) return null
         const ctx = canvas.getContext('2d')
         const dpr = window.devicePixelRatio || 1
-        const ds = Math.floor(canvas.parentElement.clientWidth * 0.95)
-        const ps = Math.floor(ds * zoom * dpr), cs = Math.floor(ds * zoom)
-        if (canvas.width !== ps) { canvas.width = ps; canvas.height = ps; canvas.style.width = cs + 'px'; canvas.style.height = cs + 'px' }
+        const displaySize = Math.floor(canvas.parentElement.clientWidth * 0.95)
+        const pixelSize = Math.floor(displaySize * zoom * dpr)
+        const cssSize = Math.floor(displaySize * zoom)
+        if (canvas.width !== pixelSize) {
+            canvas.width = pixelSize
+            canvas.height = pixelSize
+            canvas.style.width = cssSize + 'px'
+            canvas.style.height = cssSize + 'px'
+        }
         ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, 0, 0)
-        const cell = ds / size
-        ctx.clearRect(0, 0, ds, ds); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, ds, ds)
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-        const boxR = sr != null ? Math.floor(sr / boxSize) : -1, boxC = sc != null ? Math.floor(sc / boxSize) : -1
-        for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) {
-            const cell2 = board[r][c], x = c * cell, y = r * cell
-            const cr = Math.floor(r / boxSize), cc2 = Math.floor(c / boxSize)
-            ctx.fillStyle = cell2.conflict ? '#fecaca' : (sr === r && sc === c ? '#bbf7d0' : (boxR !== -1 && cr === boxR && cc2 === boxC ? '#f0f4f8' : ((cr + cc2) % 2 === 0 ? '#fff' : '#fafafa')))
-            ctx.fillRect(x + 0.5, y + 0.5, cell - 1, cell - 1)
+        ctx.clearRect(0, 0, displaySize, displaySize)
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, displaySize, displaySize)
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        return { ctx, cellSize: displaySize / size, displaySize }
+    },
+
+    // 基本步骤2：绘制一个格子的背景色和数字
+    drawCell(ctx, x, y, cellSize, bgColor, text, textColor) {
+        ctx.fillStyle = bgColor
+        ctx.fillRect(x + 0.5, y + 0.5, cellSize - 1, cellSize - 1)
+        if (text) {
+            const fontSize = Math.round(cellSize * 0.45)
+            ctx.font = `500 ${fontSize}px -apple-system, sans-serif`
+            ctx.fillStyle = textColor
+            ctx.fillText(text, x + cellSize / 2, y + cellSize / 2)
         }
-        for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) {
-            const cell2 = board[r][c]; if (!cell2.value) continue
-            const x = c * cell, y = r * cell, fs = Math.round(cell * 0.45)
-            ctx.font = `500 ${fs}px -apple-system, sans-serif`
-            ctx.fillStyle = cell2.conflict ? '#dc2626' : (cell2.editable ? '#475569' : '#1f2937')
-            ctx.fillText(cell2.value, x + cell / 2, y + cell / 2)
+    },
+
+    // 基本步骤3：绘制网格线
+    drawLines(ctx, size, boxSize, cellSize, displaySize) {
+        ctx.strokeStyle = '#374151'
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        for (let i = 0; i <= size; i += boxSize) {
+            const p = i * cellSize
+            ctx.moveTo(p, 0); ctx.lineTo(p, displaySize)
+            ctx.moveTo(0, p); ctx.lineTo(displaySize, p)
         }
-        ctx.strokeStyle = '#374151'; ctx.lineWidth = 2; ctx.beginPath()
-        for (let i = 0; i <= size; i += boxSize) { const p = i * cell; ctx.moveTo(p, 0); ctx.lineTo(p, ds); ctx.moveTo(0, p); ctx.lineTo(ds, p) }
         ctx.stroke()
-        ctx.strokeStyle = '#d1d5db'; ctx.lineWidth = 0.5; ctx.beginPath()
-        for (let i = 1; i < size; i++) { if (i % boxSize === 0) continue; const p = i * cell; ctx.moveTo(p, 0); ctx.lineTo(p, ds); ctx.moveTo(0, p); ctx.lineTo(ds, p) }
+        ctx.strokeStyle = '#d1d5db'
+        ctx.lineWidth = 0.5
+        ctx.beginPath()
+        for (let i = 1; i < size; i++) {
+            if (i % boxSize === 0) continue
+            const p = i * cellSize
+            ctx.moveTo(p, 0); ctx.lineTo(p, displaySize)
+            ctx.moveTo(0, p); ctx.lineTo(displaySize, p)
+        }
         ctx.stroke()
-        ctx.strokeStyle = '#374151'; ctx.lineWidth = 2.5; ctx.strokeRect(0.5, 0.5, ds - 1, ds - 1)
+        ctx.strokeStyle = '#374151'
+        ctx.lineWidth = 2.5
+        ctx.strokeRect(0.5, 0.5, displaySize - 1, displaySize - 1)
+    },
+
+    // 组合方法：由 setupCanvas + drawCell + drawLines 组成
+    render(id, board, size, boxSize, sr, sc, zoom = 1.0) {
+        const info = Grid.setupCanvas(id, size, zoom)
+        if (!info || !board?.length) return
+        const { ctx, cellSize, displaySize } = info
+        const boxR = sr != null ? Math.floor(sr / boxSize) : -1
+        const boxC = sc != null ? Math.floor(sc / boxSize) : -1
+        
+        for (let r = 0; r < size; r++) {
+            for (let c = 0; c < size; c++) {
+                const cell = board[r][c]
+                const x = c * cellSize, y = r * cellSize
+                const cr = Math.floor(r / boxSize), cc = Math.floor(c / boxSize)
+                
+                // 计算背景色
+                let bg
+                if (cell.conflict) bg = '#fecaca'
+                else if (sr === r && sc === c) bg = '#bbf7d0'
+                else if (boxR !== -1 && cr === boxR && cc === boxC) bg = '#f0f4f8'
+                else bg = (cr + cc) % 2 === 0 ? '#ffffff' : '#fafafa'
+                
+                // 计算文字颜色
+                const textColor = cell.conflict ? '#dc2626' : (cell.editable ? '#475569' : '#1f2937')
+                
+                Grid.drawCell(ctx, x, y, cellSize, bg, cell.value || '', textColor)
+            }
+        }
+        Grid.drawLines(ctx, size, boxSize, cellSize, displaySize)
     },
 
     clickPos(e, id, size) {
-        const canvas = document.getElementById(id); if (!canvas) return null
+        const canvas = document.getElementById(id)
+        if (!canvas) return null
         const rect = canvas.getBoundingClientRect()
-        const ds = Math.floor(canvas.parentElement.clientWidth * 0.95)
-        const scale = rect.width / ds
-        const x = (e.clientX - rect.left) / scale, y = (e.clientY - rect.top) / scale
-        const cell = ds / size
-        const r = Math.floor(y / cell), c = Math.floor(x / cell)
+        const displaySize = Math.floor(canvas.parentElement.clientWidth * 0.95)
+        const scale = rect.width / displaySize
+        const x = (e.clientX - rect.left) / scale
+        const y = (e.clientY - rect.top) / scale
+        const cellSize = displaySize / size
+        const r = Math.floor(y / cellSize), c = Math.floor(x / cellSize)
         return (r >= 0 && r < size && c >= 0 && c < size) ? [r, c] : null
     },
 

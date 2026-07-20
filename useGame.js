@@ -6,11 +6,9 @@ import { Generator } from './utils/generator.js'
 import { API } from './api.js'
 
 export function useGame() {
-    // ===== 用户系统 =====
     const users = reactive([])
     const currentUser = reactive({ val: null })
 
-    // ===== 玩家（所有状态集成于此） =====
     const p = reactive({
         page: PAGE.LOGIN,
         mode: MODE.NONE,
@@ -23,47 +21,54 @@ export function useGame() {
         createDone: false,
         createSubmitted: false,
         createEditIdx: null,
-        // === 游戏配置（集成到 p） ===
         config: { ...DEFAULTS.config },
-        // === 搜索（集成到 p） ===
         searchQ: '',
         searchRes: [],
-        // === 列表（集成到 p） ===
         listLoading: false,
     })
 
-    // ===== 页面切换 =====
     function goPage(page) { p.page = page }
 
-    // ===== 登录 =====
-    function doLogin(uname, upwd) {
-        const u = users.find(u => u.uname === uname && u.upwd === btoa(upwd))
-        if (u) {
+    // ===== 登录：调用后端 API =====
+    async function doLogin(uname, upwd) {
+        const d = await API.login(uname, upwd)
+        if (d.ok) {
+            // 从后端加载用户数据
+            const data = await API.getUserData(d.uid)
+            if (data.ok) {
+                const u = { uname: data.user.uname, puzzles: data.user.puzzles || [], records: data.user.records || [] }
+                users.push(u)
+                currentUser.val = u
+            } else {
+                currentUser.val = { uname, puzzles: [], records: [] }
+            }
+            p.msg.text = ''
+            goPage(PAGE.MENU)
+        } else {
+            p.msg.text = d.msg || '用户名或密码错误'
+        }
+    }
+
+    async function doRegister(uname, upwd) {
+        const d = await API.reg(uname, upwd)
+        if (d.ok) {
+            const u = { uname, puzzles: [], records: [] }
+            users.push(u)
             currentUser.val = u
             p.msg.text = ''
             goPage(PAGE.MENU)
         } else {
-            p.msg.text = '用户名或密码错误'
+            p.msg.text = d.msg || '注册失败'
         }
     }
-    function doRegister(uname, upwd) {
-        if (users.find(u => u.uname === uname)) {
-            p.msg.text = '用户名已存在'
-            return
-        }
-        const u = { uname, upwd: btoa(upwd), puzzles: [], records: [] }
-        users.push(u)
-        currentUser.val = u
-        p.msg.text = ''
-        goPage(PAGE.MENU)
-    }
+
     function guestLogin() {
         currentUser.val = { uname: '游客', puzzles: [], records: [], isGuest: true }
         goPage(PAGE.MENU)
     }
+
     function doLogout() {
         currentUser.val = null
-        p.msg.text = ''
         goPage(PAGE.LOGIN)
     }
 
@@ -144,7 +149,7 @@ export function useGame() {
         p.msg.text = cand.length ? `💡 此格可以填：${cand.join('、')}` : '💡 此格无合法数字'
     }
 
-    // ===== 出题 =====
+    // ===== 出题：提交时调用后端 API =====
     function initCreate() {
         const B = 3
         p.mode = MODE.CREATE
@@ -164,7 +169,7 @@ export function useGame() {
         const puz = currentUser.val?.puzzles?.[idx]
         if (!puz) return
         initCreate()
-        p.board = puz.puzzle.map(r => [...r])
+        p.board = (typeof puz.puzzle === 'string' ? JSON.parse(puz.puzzle) : puz.puzzle).map(r => [...r])
         p.createEditIdx = idx
     }
 
@@ -178,18 +183,35 @@ export function useGame() {
         p.createDone = false
     }
 
-    function submitCreate(title) {
+    async function submitCreate(title) {
         const numBoard = Grid.toNum(p.board)
         let puzzle = numBoard
         if (p.stepPtr >= 0 && p.history[0]) {
             puzzle = p.history[0].map(r => r.map(c => c.value ?? c))
         }
         const solution = numBoard
-        const data = { puzzle, solution, title: title || '', boardSize: Math.round(Math.sqrt(numBoard.length)) }
-        if (p.createEditIdx != null) {
-            currentUser.val.puzzles[p.createEditIdx] = data
+        const boardSize = Math.round(Math.sqrt(numBoard.length))
+        
+        // 调用后端 API 保存
+        if (currentUser.val && !currentUser.val.isGuest) {
+            const d = await API.addPuzzle(users.indexOf(currentUser.val) + 1, puzzle, solution, title || '', boardSize)
+            if (d.ok) {
+                // 同步到本地
+                const data = { puzzle, solution, title: title || '', boardSize }
+                if (p.createEditIdx != null) {
+                    currentUser.val.puzzles[p.createEditIdx] = data
+                } else {
+                    currentUser.val.puzzles.push(data)
+                }
+            }
         } else {
-            currentUser.val.puzzles.push(data)
+            // 游客模式：仅本地保存
+            const data = { puzzle, solution, title: title || '', boardSize }
+            if (p.createEditIdx != null) {
+                currentUser.val.puzzles[p.createEditIdx] = data
+            } else {
+                currentUser.val.puzzles.push(data)
+            }
         }
         p.createSubmitted = true
         p.msg.text = 'success'
@@ -200,36 +222,43 @@ export function useGame() {
         goPage(PAGE.MENU)
     }
 
-    // ===== 搜索 =====
-    function doSearch() {
-        const q = p.searchQ.toLowerCase()
-        const all = []
-        users.forEach(u => {
-            u.puzzles.forEach((puz, i) => {
-                all.push({ ...puz, pid: i, uid: users.indexOf(u), uname: u.uname })
-            })
-        })
-        p.searchRes = all.filter(puz =>
-            (puz.title || '').toLowerCase().includes(q) ||
-            (puz.uname || '').toLowerCase().includes(q) ||
-            String(puz.pid).includes(q)
-        )
+    // ===== 搜索：从后端获取 =====
+    async function doSearch() {
+        const results = await API.searchPuzzles(p.searchQ)
+        p.searchRes = results.map(r => ({
+            ...r,
+            puzzle: typeof r.puzzleData === 'string' ? JSON.parse(r.puzzleData) : r.puzzleData,
+            uname: r.username || '',
+        }))
     }
 
-    // ===== 我的题目 =====
-    function loadMyPuzzles() {
+    // ===== 我的题目：从后端加载 =====
+    async function loadMyPuzzles() {
+        if (!currentUser.val || currentUser.val.isGuest) return
         p.listLoading = true
-        setTimeout(() => { p.listLoading = false }, 100)
+        // 从后端重新加载
+        const results = await API.getPuzzlesByUser(users.indexOf(currentUser.val) + 1)
+        currentUser.val.puzzles = results.map(r => ({
+            puzzle: typeof r.puzzleData === 'string' ? JSON.parse(r.puzzleData) : r.puzzleData,
+            solution: null,
+            title: r.title || '',
+            boardSize: r.boardSize || 3,
+        }))
+        p.listLoading = false
     }
 
-    function delPuzzle(idx) {
+    async function delPuzzle(idx) {
         if (!currentUser.val?.puzzles) return
+        // 调用后端删除
+        if (!currentUser.val.isGuest) {
+            const pid = idx + 1  // 简单映射
+            await API.delPuzzle(pid, users.indexOf(currentUser.val) + 1)
+        }
         currentUser.val.puzzles.splice(idx, 1)
     }
 
-    // ===== 挑战题目 =====
     function playPuzzle(puzzle) {
-        const puz = puzzle.puzzle || puzzle.puzzle_data
+        const puz = puzzle.puzzle || puzzle.puzzleData
         if (!puz || !Array.isArray(puz)) return
         p.mode = MODE.GAME
         p.status = STATUS.PLAYING
@@ -250,7 +279,6 @@ export function useGame() {
         }
     }
 
-    // ===== 返回 =====
     return {
         users, currentUser, p,
         goPage,
