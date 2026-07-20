@@ -1,0 +1,8 @@
+name = "sudoku"
+compatibility_date = "2024-01-01"
+pages_build_output_dir = "."
+
+[[d1_databases]]
+binding = "DB"
+database_name = "sudoku-db"
+database_id = "7f6850fb-763f-4431-b3d8-15ecdb895f71"
