@@ -1,0 +1,95 @@
+/* common.css - 公用样式 */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    background: #f0f4f8;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    padding: 8px;
+}
+
+[v-cloak] { display: none !important; }
+
+#app {
+    position: relative;
+    background: #fff;
+    padding: 16px;
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+    max-width: 580px;
+    width: 100%;
+    text-align: center;
+    max-height: 95vh;
+    overflow-y: auto;
+}
+
+/* 按钮 */
+.btn {
+    padding: 6px 20px;
+    border-radius: 20px;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.85rem;
+    transition: background 0.2s;
+}
+.btn-primary { background: #6366f1; color: #fff; }
+.btn-primary:hover { background: #4f46e5; }
+.btn-secondary { background: #f3f4f6; color: #374151; }
+.btn-secondary:hover { background: #e5e7eb; }
+.btn-block { width: 100%; padding: 12px; margin-top: 12px; }
+.btn-sm { padding: 4px 12px; font-size: 0.8rem; }
+
+/* 面板 */
+.panel { padding: 8px 0; }
+.panel h2 { margin-bottom: 16px; color: #2d3748; font-size: 1.2rem; }
+.config-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.config-header h2 { font-size: 1.1rem; color: #2d3748; margin: 0; }
+
+/* 表单 */
+.config-item {
+    display: flex; flex-direction: column; align-items: flex-start;
+    margin-bottom: 12px; gap: 4px;
+}
+.config-item label { font-size: 0.85rem; font-weight: 600; color: #374151; }
+.config-item .input-group {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%;
+}
+.config-item input, .config-item select {
+    padding: 4px 8px; border-radius: 6px; border: 1px solid #d1d5db;
+    font-size: 0.9rem; width: 70px;
+}
+.config-item select { width: 100%; max-width: 200px; }
+.config-item .hint { font-size: 0.8rem; color: #6b7280; }
+
+/* 消息框 */
+.auth-message { margin-top: 12px; padding: 8px 12px; border-radius: 8px; font-size: 0.85rem; color: #dc2626; background: #fee2e2; text-align: center; }
+.auth-message.success { color: #16a34a; background: #dcfce7; }
+.conflict-box { color: #b91c1c; text-align: left; background: #fee2e2; }
+.hint-box { color: #4f46e5; text-align: center; background: #eef2ff; border: 1px solid #c7d2fe; font-size: 0.9rem; }
+
+/* 工具类 */
+.flex-center { display: flex; align-items: center; justify-content: center; }
+
+/* 响应式 */
+@media (max-width: 500px) {
+    .status-bar { flex-direction: column; align-items: center; gap: 8px; }
+    .zoom-controls, .status-right { width: 100%; justify-content: center; }
+}
+
+/* 滚动条 */
+.board-scroll-container::-webkit-scrollbar,
+.history-steps-container::-webkit-scrollbar,
+.card-list::-webkit-scrollbar { background: #f1f5f9; }
+.board-scroll-container::-webkit-scrollbar { width: 8px; height: 8px; }
+.history-steps-container::-webkit-scrollbar { height: 6px; }
+.card-list::-webkit-scrollbar { width: 6px; }
+.board-scroll-container::-webkit-scrollbar-thumb,
+.history-steps-container::-webkit-scrollbar-thumb,
+.card-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 6px; }
+.board-scroll-container::-webkit-scrollbar-thumb:hover,
+.history-steps-container::-webkit-scrollbar-thumb:hover,
+.card-list::-webkit-scrollbar-thumb:hover { background: #94a3b8; }

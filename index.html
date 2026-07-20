@@ -2,130 +2,22 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
     <title>数独</title>
-    <link rel="stylesheet" href="styles/style.css">
+    <link rel="stylesheet" href="styles/common.css">
+    <link rel="stylesheet" href="styles/board.css">
+    <link rel="stylesheet" href="styles/pages.css">
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
 </head>
 <body>
     <div id="app" v-cloak>
-        <!-- 登录页 -->
-        <login-component 
-            v-if="page === 'login'" 
-            :message="loginMessage"
-            @login="onDoLogin"
-            @register="onDoRegister"
-            @guest="onGuestLogin"
-            @login-error="loginMessage = $event"
-            @register-error="loginMessage = $event"
-        ></login-component>
-        
-        <!-- 主菜单 -->
-        <main-menu-component 
-            v-if="page === 'mainMenu'" 
-            :current-user="currentUser"
-            @start-system-game="goToPage(Pages.CONFIG)"
-            @start-random-user-puzzle="startRandomUserPuzzle"
-            @random-puzzle-error="alert($event)"
-            @create-puzzle="goToCreatePuzzle"
-            @my-puzzles="goToMyPuzzles"
-            @search-puzzles="goToSearchPuzzles"
-            @logout="onLogout"
-        ></main-menu-component>
-        
-        <!-- 游戏配置 -->
-        <config-component 
-            v-if="page === 'config'"
-            :config="config"
-            :min-blanks="blanksRange.min"
-            :max-blanks="blanksRange.max"
-            @start="startFromConfig"
-            @back="goToMainMenu"
-            @update:config="config = $event"
-        ></config-component>
-        
-        <!-- 出题 -->
-        <create-puzzle-component 
-            v-if="page === 'createPuzzle'"
-            :current-user="currentUser"
-            :create-puzzle-mode="createPuzzleMode"
-            :puzzle-title="puzzleTitle"
-            :box-size="puzzleBoxSize"
-            :create-message="createMessage"
-            :board="createBoard"
-            :game-board="createGameBoard"
-            :selected-row="createSelectedRow"
-            :selected-col="createSelectedCol"
-            :history-map="createHistoryMap"
-            :step-pointer="createStepPointer"
-            :show-victory="createShowVictory"
-            :create-submitted="createSubmitted"
-            :stats="createStats"
-            :zoom="zoom"
-            @back="goToMainMenu"
-            @update:box-size="puzzleBoxSize = $event"
-            @update:puzzle-title="puzzleTitle = $event"
-            @cell-click="onCreateCellClick"
-            @input-number="onCreateInputNumber"
-            @clear-selected="onCreateClearSelected"
-            @undo="onCreateUndo"
-            @redo="onCreateRedo"
-            @clear-board="onCreateClearBoard"
-            @start-solving="onCreateStartSolving"
-            @back-to-edit="onCreateBackToEdit"
-            @update:zoom="zoom = $event"
-            @submit-puzzle="onCreateSubmitPuzzle"
-            @submit-error="createMessage = $event"
-        ></create-puzzle-component>
-        
-        <!-- 搜索题目 -->
-        <search-puzzles-component 
-            v-if="page === 'searchPuzzles'"
-            :search-query="searchQuery"
-            :search-results="searchResults"
-            :message="searchMessage"
-            @back="goToMainMenu"
-            @start-puzzle="startUserPuzzle"
-            @view-user-puzzles="viewUserPuzzles"
-            @search="onSearch"
-            @update:search-query="searchQuery = $event"
-        ></search-puzzles-component>
-        
-        <!-- 我的题目 -->
-        <my-puzzles-component 
-            v-if="page === 'myPuzzles'"
-            :current-user="currentUser"
-            :view-user-id="viewUserId"
-            :puzzles="myPuzzles"
-            :message="myPuzzlesMessage"
-            :loading="myPuzzlesLoading"
-            @back="goToMainMenu"
-            @edit-puzzle="editPuzzle"
-            @delete-puzzle="onDeletePuzzle"
-        ></my-puzzles-component>
-        
-        <!-- 游戏 -->
-        <game-component 
-            v-if="page === 'game'"
-            :game="game"
-            :config="config"
-            :history-map="historyMap"
-            :step-pointer="stepPointer"
-            :zoom="zoom"
-            @back="goToMainMenu"
-            @reset="resetGame"
-            @update:game="game = $event"
-            @update:history-map="historyMap = $event"
-            @update:step-pointer="stepPointer = $event"
-            @update:zoom="zoom = $event"
-            @cell-click="onCellClick"
-            @input-number="onInputNumber"
-            @clear-selected="onClearSelected"
-            @undo="onUndo"
-            @redo="onRedo"
-            @move-pointer="_movePointer"
-            @give-hint="onGiveHint"
-        ></game-component>
+        <login-panel v-if="p.page === 'login'"></login-panel>
+        <menu-panel v-if="p.page === 'menu'"></menu-panel>
+        <config-panel v-if="p.page === 'config'"></config-panel>
+        <game-panel v-if="p.page === 'game'"></game-panel>
+        <create-panel v-if="p.page === 'create'"></create-panel>
+        <search-panel v-if="p.page === 'search'"></search-panel>
+        <my-puzzles-panel v-if="p.page === 'myPuzzles'"></my-puzzles-panel>
     </div>
     <script type="module" src="main.js"></script>
 </body>
