@@ -7,7 +7,13 @@
     <link rel="stylesheet" href="styles/common.css">
     <link rel="stylesheet" href="styles/board.css">
     <link rel="stylesheet" href="styles/pages.css">
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script type="importmap">
+    {
+        "imports": {
+            "vue": "https://unpkg.com/vue@3/dist/vue.esm-browser.js"
+        }
+    }
+    </script>
 </head>
 <body>
     <div id="app" v-cloak>
