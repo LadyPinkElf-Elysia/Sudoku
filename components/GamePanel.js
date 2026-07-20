@@ -1,4 +1,4 @@
-import { inject, ref, onMounted, onBeforeUnmount, computed } from 'vue'
+import { inject, ref, watch, onMounted, onBeforeUnmount, computed } from 'vue'
 import { Grid } from '../utils/grid.js'
 export const GamePanel = {
     template: `
@@ -45,16 +45,18 @@ export const GamePanel = {
     setup() {
         const ctx = inject('ctx')
         const zoom = ref(1)
-        const size = computed(() => {
-            const b = ctx.p.board
-            return b.length || 9
-        })
+        const size = computed(() => ctx.p.board.length || 9)
         const boxSize = computed(() => Math.round(Math.sqrt(size.value)))
         const sizeLabel = computed(() => size.value + '×' + size.value)
-        
+
         function render() {
             Grid.render('gameCanvas', ctx.p.board, size.value, boxSize.value, ctx.p.sel[0], ctx.p.sel[1], zoom.value)
         }
+
+        // 监听 board 变化自动重绘
+        watch(() => ctx.p.board, () => setTimeout(render, 50), { deep: true })
+        watch(() => ctx.p.status, (v) => { if (v === 'playing') setTimeout(render, 50) })
+
         function clickHandler(e) {
             const pos = Grid.clickPos(e, 'gameCanvas', size.value)
             if (pos) { ctx.p.sel = pos; render() }
@@ -83,7 +85,7 @@ export const GamePanel = {
         function zoomOut() { zoom.value = Math.max(0.5, zoom.value - 0.1); render() }
 
         onMounted(() => {
-            setTimeout(render, 50)
+            setTimeout(render, 100)
             document.addEventListener('click', clickHandler)
             document.addEventListener('keydown', keyHandler)
         })
